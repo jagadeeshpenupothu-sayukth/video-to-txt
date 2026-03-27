@@ -107,6 +107,35 @@
             background: var(--bg);
         }
 
+        .site-version-badge {
+            position: fixed;
+            left: 50%;
+            bottom: 10px;
+            transform: translateX(-50%);
+            z-index: 25;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            min-height: 28px;
+            padding: 0 12px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.92);
+            border: 1px solid rgba(148, 163, 184, 0.24);
+            color: #475569;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+            backdrop-filter: blur(8px);
+        }
+
+        body.dark .site-version-badge {
+            background: rgba(21, 25, 34, 0.92);
+            border-color: rgba(71, 85, 105, 0.5);
+            color: #cbd5e1;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+        }
+
         .progress-steps {
             position: relative;
             display: grid;
@@ -577,6 +606,14 @@
             align-items: stretch;
         }
 
+        .edit-layout.transcript-collapsed {
+            grid-template-columns: minmax(0, 1fr);
+        }
+
+        .edit-layout.transcript-collapsed .transcript-panel {
+            display: none;
+        }
+
         .surface-card {
             display: flex;
             flex-direction: column;
@@ -628,7 +665,7 @@
         .video-stack {
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 8px;
             min-height: 100%;
             height: 100%;
         }
@@ -637,12 +674,12 @@
             position: relative;
             flex: 1;
             min-height: 0;
-            height: calc(100vh - 360px);
+            height: calc(100vh - 328px);
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 18px;
-            border-radius: 22px;
+            padding: 12px;
+            border-radius: 18px;
             background: #e9eef7;
             border: 1px solid var(--line);
             overflow: hidden;
@@ -657,6 +694,460 @@
             display: block;
             border-radius: 18px;
             background: #000;
+        }
+
+        .video-timestamp {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+            color: #4b5563;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .video-timestamp-value {
+            display: inline-flex;
+            align-items: center;
+            min-width: 88px;
+            padding: 6px 10px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.88);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .video-timestamp-copy {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 32px;
+            min-height: 32px;
+            padding: 0;
+            border-radius: 10px;
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            background: rgba(255, 255, 255, 0.88);
+            color: #4b5563;
+        }
+
+        .custom-player-shell {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            padding: 2px 0 4px;
+            min-height: 122px;
+            max-height: none;
+            border-radius: 0;
+            background: transparent;
+            border: none;
+            box-shadow: none;
+        }
+
+        .player-bottom-actions {
+            position: absolute;
+            left: 6px;
+            bottom: 2px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 5;
+        }
+
+        .player-expand-btn {
+            min-width: 30px;
+            height: 30px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid rgba(148, 163, 184, 0.26);
+            color: #475569;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+            z-index: 5;
+            padding: 0;
+            gap: 0;
+        }
+
+        .player-expand-btn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .edit-layout.transcript-collapsed .video-stage-card {
+            width: 100%;
+            max-width: 100%;
+        }
+
+        .edit-layout.transcript-collapsed .custom-player-shell {
+            min-height: 154px;
+        }
+
+        .edit-layout.transcript-collapsed #waveform-container {
+            height: 108px;
+            min-height: 108px;
+        }
+
+        .waveform-tools-row {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            min-height: 18px;
+        }
+
+        .waveform-zoom-controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 0;
+            border-radius: 0;
+            background: transparent;
+            border: none;
+            width: auto;
+            margin: 0;
+        }
+
+        .waveform-zoom-label {
+            color: #64748b;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .waveform-zoom-select {
+            min-width: 84px;
+            height: 30px;
+            padding: 0 28px 0 10px;
+            border-radius: 10px;
+            border: 1px solid rgba(148, 163, 184, 0.24);
+            background: rgba(255, 255, 255, 0.92);
+            color: #0f172a;
+            font-size: 12px;
+            font-weight: 600;
+            appearance: none;
+            -webkit-appearance: none;
+            background-image:
+                linear-gradient(45deg, transparent 50%, #64748b 50%),
+                linear-gradient(135deg, #64748b 50%, transparent 50%);
+            background-position:
+                calc(100% - 14px) 12px,
+                calc(100% - 9px) 12px;
+            background-size: 5px 5px, 5px 5px;
+            background-repeat: no-repeat;
+        }
+
+        .waveform-zoom-select:focus {
+            outline: none;
+            border-color: rgba(37, 99, 235, 0.4);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+        }
+
+        #waveform-container {
+            position: relative;
+            height: 84px;
+            min-height: 84px;
+            width: 100%;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scrollbar-width: thin;
+            scrollbar-color: #94a3b8 transparent;
+            cursor: grab;
+            user-select: none;
+            border-radius: 10px;
+            scroll-behavior: smooth;
+            white-space: nowrap;
+            margin-top: 0;
+        }
+
+        #waveform-container.dragging {
+            cursor: grabbing;
+        }
+
+        #waveform-container::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        #waveform-container::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+            border-radius: 10px;
+        }
+
+        #waveform-container::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        #waveform-container::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+
+        .waveform-content {
+            position: relative;
+            height: 100%;
+            min-width: 100%;
+            overflow: hidden;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+        }
+
+        .waveform-grid {
+            display: none;
+        }
+
+        .waveform-clip-segments {
+            position: absolute;
+            inset: 5px 0;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .waveform-boundary-handles {
+            position: absolute;
+            inset: 5px 0;
+            z-index: 4;
+            pointer-events: none;
+        }
+
+        .waveform-clip-segment {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            box-sizing: border-box;
+            border-radius: 6px;
+            overflow: hidden;
+            transition: filter 0.16s ease, box-shadow 0.16s ease;
+            pointer-events: auto;
+            cursor: pointer;
+        }
+
+        .waveform-clip-segment .clip-bg {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            opacity: 0.32;
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            border-radius: 8px;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+            transition: background 0.16s ease, filter 0.16s ease, box-shadow 0.16s ease;
+        }
+
+        .waveform-clip-segment.variant-a .clip-bg {
+            background: linear-gradient(
+                to right,
+                rgba(96, 165, 250, 0.12),
+                rgba(147, 197, 253, 0.1)
+            );
+        }
+
+        .waveform-clip-segment.variant-b .clip-bg {
+            background: linear-gradient(
+                to right,
+                rgba(110, 231, 183, 0.12),
+                rgba(167, 243, 208, 0.1)
+            );
+        }
+
+        .waveform-clip-segment::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 0.75px;
+            background: #3b82f6;
+            opacity: 0.6;
+            z-index: 1;
+        }
+
+        .waveform-clip-segment:hover .clip-bg {
+            filter: brightness(0.95);
+        }
+
+        .waveform-clip-segment.active .clip-bg {
+            border: 2px solid #3b82f6;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 0 0 1px rgba(59, 130, 246, 0.14);
+        }
+
+        .waveform-boundary-handle {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 14px;
+            margin-left: -7px;
+            border: none;
+            border-radius: 0;
+            background: transparent;
+            box-shadow: none;
+            cursor: col-resize;
+            pointer-events: auto;
+            transition: none;
+        }
+
+        .waveform-boundary-handle::before {
+            content: none;
+        }
+
+        .waveform-boundary-handle:hover,
+        .waveform-boundary-handle.dragging {
+            background: transparent;
+        }
+
+        #waveform {
+            position: absolute;
+            inset: 5px 0;
+            z-index: 2;
+            opacity: 1;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #waveform canvas {
+            filter: contrast(1.08) brightness(1.02);
+        }
+
+        .waveform-peaks-canvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        #waveform.empty {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #94a3b8;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .waveform-status-badge {
+            display: none;
+        }
+
+        .waveform-status-item {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .waveform-status-separator {
+            color: rgba(100, 116, 139, 0.55);
+            font-size: 10px;
+            flex-shrink: 0;
+        }
+
+        .player-controls-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0;
+            margin-top: 0;
+            padding: 0 8px 0 46px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .player-clip-update {
+            min-height: 32px;
+            height: 32px;
+            padding: 4px 10px;
+            border: none;
+            border-radius: 8px;
+            background: #2563eb;
+            color: #ffffff;
+            font-size: 12px;
+            font-weight: 700;
+            box-shadow: none;
+        }
+
+        .player-transport-group {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+        }
+
+        .player-transport-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 38px;
+            height: 38px;
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.92);
+            color: #0f172a;
+            box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
+            padding: 0;
+            font-size: 13px;
+            transition: transform 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+        }
+
+        .player-transport-btn:hover {
+            transform: scale(1.05);
+            background: #ffffff;
+        }
+
+        .player-transport-btn:active {
+            transform: scale(0.95);
+        }
+
+        .player-transport-btn.primary {
+            width: 50px;
+            height: 50px;
+            border-radius: 999px;
+            background: #ffffff;
+            color: #111827;
+            font-size: 20px;
+        }
+
+        .controls-footer {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            width: 100%;
+            position: relative;
+        }
+
+        .controls-left {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            width: 100%;
+        }
+
+        .controls-center {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .controls-right {
+            justify-self: end;
+            color: #8b8b8b;
+            font-size: 10px;
+            font-weight: 400;
+            font-variant-numeric: tabular-nums;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            width: 100%;
+        }
+
+        .time-readout {
+            white-space: nowrap;
+            letter-spacing: 0;
+            color: #7c8698;
+            font-size: 10px;
+            font-weight: 400;
         }
 
         .trim-box,
@@ -709,6 +1200,12 @@
             margin-bottom: 10px;
         }
 
+        .segment-header-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
         .segment-badge {
             padding: 8px 12px;
             border-radius: 999px;
@@ -747,6 +1244,7 @@
             max-height: calc(100vh - 230px);
             position: sticky;
             top: 0;
+            padding: 14px 14px 10px;
         }
 
         .video-pop {
@@ -756,6 +1254,7 @@
             border-radius: 24px;
             background: #f4f7fb;
             border: 1px solid var(--line);
+            box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
         }
 
         .video-meta {
@@ -852,26 +1351,28 @@
             overflow-y: hidden;
             padding-bottom: 4px;
             scrollbar-width: thin;
-            scrollbar-color: rgba(15, 23, 42, 0.18) transparent;
+            scrollbar-color: #94a3b8 transparent;
         }
 
         .timeline-scroll::-webkit-scrollbar {
-            height: 8px;
+            height: 6px;
+        }
+
+        .timeline-scroll::-webkit-scrollbar-track {
+            background: transparent;
         }
 
         .timeline-scroll::-webkit-scrollbar-thumb {
-            background: rgba(15, 23, 42, 0.18);
-            border-radius: 999px;
+            background: #94a3b8;
+            border-radius: 10px;
         }
 
         .timeline-ruler::before {
-            content: "";
-            position: absolute;
-            left: 0;
-            right: 0;
-            top: 14px;
-            height: 1px;
-            background: rgba(148, 163, 184, 0.28);
+            content: none;
+        }
+
+        .timeline-scroll::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
         }
 
         .timeline-ruler-label {
@@ -896,9 +1397,8 @@
             height: 64px;
             min-width: 100%;
             border-radius: 14px;
-            background:
-                linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 247, 251, 0.98));
-            border: 1px solid rgba(148, 163, 184, 0.22);
+            background: transparent;
+            border: none;
             overflow: hidden;
             cursor: pointer;
         }
@@ -926,24 +1426,53 @@
             top: 10px;
             bottom: 10px;
             min-width: 12px;
-            border-radius: 10px;
+            box-sizing: border-box;
+            border-radius: 6px;
             background: rgba(21, 94, 239, 0.18);
-            border: 1px solid rgba(21, 94, 239, 0.18);
+            border: none;
+            border-left: none;
+            border-right: none;
             color: var(--text);
             box-shadow: none;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+            transition: filter 0.16s ease;
+        }
+
+        .timeline-block.variant-a {
+            background: linear-gradient(
+                to right,
+                rgba(59, 130, 246, 0.25),
+                rgba(59, 130, 246, 0.18)
+            );
+        }
+
+        .timeline-block.variant-b {
+            background: linear-gradient(
+                to right,
+                rgba(34, 197, 94, 0.25),
+                rgba(34, 197, 94, 0.18)
+            );
+        }
+
+        .timeline-block::before {
+            content: none;
+        }
+
+        .timeline-block:hover {
+            filter: brightness(0.95);
         }
 
         .timeline-block.active {
-            background: rgba(0, 120, 255, 0.2);
-            border-color: rgba(0, 120, 255, 0.24);
-            box-shadow:
-                0 0 0 2px rgba(0, 120, 255, 0.12),
-                0 8px 18px rgba(0, 120, 255, 0.12);
+            border: none;
+            outline: none;
+            box-shadow: none;
         }
 
         .timeline-block.selected {
-            background: rgba(15, 23, 42, 0.16);
-            border-color: rgba(15, 23, 42, 0.22);
+            outline: none;
+            box-shadow: none;
         }
 
         .timeline-block-label {
@@ -1035,45 +1564,59 @@
             flex: 1;
         }
 
-        .segment-card {
+        .segment-card,
+        .clip-card {
             position: relative;
-            padding: 8px 10px;
-            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 10px 12px;
+            border-radius: 12px;
             border: 1px solid rgba(15, 23, 42, 0.05);
-            background: rgba(255, 255, 255, 0.96);
-            margin-bottom: 6px;
-            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.02);
+            background: #ffffff;
+            margin-bottom: 8px;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
             overflow: hidden;
-            transition: background 0.18s ease, border-color 0.18s ease;
+            transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.2s ease;
         }
 
-        .segment-card:hover {
-            background: rgba(0, 0, 0, 0.02);
-            border-color: rgba(15, 23, 42, 0.08);
+        .segment-card:hover,
+        .clip-card:hover {
+            background: #ffffff;
+            border-color: rgba(79, 70, 229, 0.08);
+            box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
         }
 
         .segment-card:focus-within {
             background: #ffffff;
-            border-color: rgba(0, 120, 255, 0.12);
+            border-color: rgba(79, 70, 229, 0.26);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.08);
         }
 
         .segment-card.active {
-            border: 1.5px solid #3b82f6;
-            background: rgba(59, 130, 246, 0.06);
-            box-shadow: none;
+            border: 2px solid #4f46e5;
+            background: #ffffff;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.10), 0 8px 20px rgba(79, 70, 229, 0.08);
             transform: none;
         }
 
         .segment-card.active:hover {
-            background: rgba(59, 130, 246, 0.08);
+            background: #ffffff;
         }
 
-        .segment-top {
+        .segment-card.modified {
+            border-color: rgba(79, 70, 229, 0.26);
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.08), 0 6px 18px rgba(79, 70, 229, 0.07);
+        }
+
+        .segment-top,
+        .clip-header {
             display: flex;
-            align-items: flex-start;
+            align-items: center;
             justify-content: space-between;
-            gap: 12px;
-            margin-bottom: 6px;
+            gap: 8px;
+            margin-bottom: 0;
+            position: relative;
         }
 
         .segment-meta {
@@ -1083,20 +1626,26 @@
         }
 
         .segment-label {
-            color: var(--muted);
-            font-size: 13px;
+            color: #6b7280;
+            font-size: 12px;
             text-transform: none;
             letter-spacing: 0.01em;
-            font-weight: 700;
+            font-weight: 600;
             margin-bottom: 0;
             margin-right: 0;
         }
 
         .segment-time-primary {
-            color: var(--muted);
+            color: #9ca3af;
             font-size: 12px;
-            font-weight: 500;
+            font-weight: 400;
             letter-spacing: 0.01em;
+            font-variant-numeric: tabular-nums;
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            white-space: nowrap;
         }
 
         .segment-duration {
@@ -1124,13 +1673,54 @@
         .segment-heading {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .segment-confidence-badge {
+            display: none;
         }
 
         .segment-header-right {
             display: inline-flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            margin-left: auto;
+        }
+
+        .segment-status-indicator {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            min-width: 16px;
+            height: 16px;
+            color: var(--muted);
+            font-size: 11px;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .segment-status-indicator.loading {
+            width: 14px;
+            min-width: 14px;
+            height: 14px;
+        }
+
+        .segment-status-indicator.ready {
+            width: 8px;
+            min-width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            background: #16a34a;
+            color: transparent;
+            font-size: 0;
+        }
+
+        .segment-status-indicator.error {
+            color: var(--danger);
         }
 
         .segment-tools {
@@ -1141,64 +1731,348 @@
             flex-shrink: 0;
         }
 
-        .timestamp-toggle {
+        .segment-play-group {
+            display: none;
+        }
+
+        .clip-actions button {
+            width: 90px;
+            height: 32px;
+            padding: 4px 6px;
+            border-radius: 6px;
+            background: #f3f4f6;
+            color: #1f2937;
+            border: 1px solid #d1d5db;
+            font-weight: 700;
+            font-size: 12px;
+            line-height: 1;
+            text-align: center;
+            cursor: pointer;
+        }
+
+        .clip-text-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .clip-text {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .clip-actions {
+            display: inline-flex;
+            align-items: flex-end;
+            flex-direction: column;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .sync-status {
+            font-size: 12px;
+            color: #6b7280;
+            white-space: nowrap;
+        }
+
+        .clip-actions button:hover:not(:disabled) {
+            background: #e5e7eb;
+        }
+
+        .clip-actions button:active:not(:disabled) {
+            transform: scale(0.97);
+        }
+
+        .clip-btn.playing,
+        .english-clip-btn.playing {
+            background: rgba(79, 70, 229, 0.08);
+            border-color: rgba(79, 70, 229, 0.26);
+            color: #4f46e5;
+        }
+
+        .english-clip-btn.loading {
+            color: var(--primary);
+            border-color: rgba(79, 70, 229, 0.22);
+            background: rgba(79, 70, 229, 0.08);
+        }
+
+        button[disabled] {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .audio-spinner {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 999px;
+            border: 2px solid rgba(21, 94, 239, 0.18);
+            border-top-color: var(--primary);
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .english-audio-status {
+            display: none;
+            color: var(--muted);
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .english-audio-status.loading,
+        .english-audio-status.dirty {
+            color: var(--primary);
+        }
+
+        .english-audio-status.error {
+            color: var(--danger);
+        }
+
+        .translate-toggle-btn {
+            min-height: 36px;
+            min-width: 36px;
+            padding: 0 10px;
+            border-radius: 12px;
+            background: transparent;
+            color: var(--text);
+            border: 1px solid var(--line);
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .translate-toggle-btn svg {
+            width: 16px;
+            height: 16px;
+            display: block;
+        }
+
+        .translate-toggle-btn.active {
+            background: rgba(21, 94, 239, 0.10);
+            border-color: rgba(37, 99, 235, 0.24);
+            color: var(--primary);
+        }
+
+        .translate-toggle-btn:disabled {
+            opacity: 0.5;
+        }
+
+        .voice-style-shell {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 10px;
+            border-radius: 14px;
+            border: 1px solid var(--line);
+            background: rgba(255, 255, 255, 0.72);
+        }
+
+        .voice-style-label {
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .voice-style-select {
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 8px 10px;
+            background: #fff;
+            color: var(--text);
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .voice-style-hint {
+            position: relative;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 32px;
-            min-width: 32px;
-            height: 32px;
-            border-radius: 10px;
-            border: 1px solid transparent;
+            width: 26px;
+            height: 26px;
+            border-radius: 999px;
+            border: 1px solid var(--line);
             background: transparent;
-            color: var(--muted);
-            font-size: 14px;
-            transition: color 180ms ease, border-color 180ms ease, background 180ms ease;
-        }
-
-        .timestamp-toggle:hover,
-        .timestamp-toggle:focus-visible {
             color: var(--primary);
-            border-color: rgba(37, 99, 235, 0.28);
-            background: rgba(37, 99, 235, 0.06);
-        }
-
-        .clip-btn {
-            min-height: 32px;
-            width: 32px;
-            min-width: 32px;
-            padding: 0;
-            border-radius: 10px;
-            background: transparent;
-            color: var(--text);
-            border: 1px solid transparent;
-            font-weight: 700;
             font-size: 14px;
+            font-weight: 800;
+            cursor: pointer;
         }
 
-        .clip-btn:hover:not(:disabled),
-        .clip-btn.playing {
-            background: rgba(21, 94, 239, 0.08);
-            border-color: rgba(37, 99, 235, 0.18);
+        .voice-style-hint-card {
+            position: absolute;
+            top: calc(100% + 10px);
+            right: 0;
+            width: 240px;
+            padding: 12px;
+            border-radius: 14px;
+            border: 1px solid var(--line);
+            background: #fff;
+            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+            color: var(--text);
+            font-size: 12px;
+            line-height: 1.6;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(6px);
+            transition: opacity 0.18s ease, transform 0.18s ease;
+            z-index: 20;
+        }
+
+        .voice-style-hint-card strong {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 12px;
+        }
+
+        .voice-style-hint:hover .voice-style-hint-card,
+        .voice-style-hint:focus-within .voice-style-hint-card {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(0);
+        }
+
+        .translation-block {
+            display: none;
+            margin-top: 2px;
+            padding: 6px 10px;
+            border-radius: 8px;
+            background: linear-gradient(180deg, #f7fffa 0%, #f2fbff 100%);
+            border: 1px solid rgba(52, 168, 83, 0.10);
+            border-left: 3px solid #4CAF50;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+            opacity: 0;
+            transform: translateY(8px);
+            transition: opacity 0.22s ease, transform 0.22s ease;
+        }
+
+        .translation-block.show {
+            display: block;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .translation-block.loading {
+            background: linear-gradient(180deg, #f8fbff 0%, #eef6ff 100%);
+            border-left-color: #5b8def;
+        }
+
+        .translation-block.ready {
+            animation: translationFadeIn 0.28s ease;
+        }
+
+        .translation-label {
+            display: block;
+            margin-bottom: 2px;
+            color: #628273;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+
+        .translation-text {
+            color: #163228;
+            font-family: "Noto Sans Telugu", sans-serif;
+            font-size: 13px;
+            line-height: 1.45;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+            text-wrap: pretty;
+        }
+
+        .translation-text.loading,
+        .translation-text.empty {
+            color: #688197;
+        }
+
+        .translation-text.loading {
+            position: relative;
+            padding-left: 20px;
+        }
+
+        .translation-text.loading::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 0.45em;
+            width: 10px;
+            height: 10px;
+            border-radius: 999px;
+            border: 2px solid rgba(91, 141, 239, 0.22);
+            border-top-color: #5b8def;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes translationFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(6px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         textarea {
             width: 100%;
-            min-height: 42px;
-            padding: 0;
-            border-radius: 0;
-            border: none;
-            background: transparent;
+            min-height: 52px;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(0, 0, 0, 0.10);
+            background: #fafafa;
             color: var(--text);
-            line-height: 1.5;
+            line-height: 1.6;
             resize: none;
-            font-size: 17px;
+            font-size: 16px;
             outline: none;
             font-weight: 500;
+            overflow: hidden;
+            box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.02);
         }
 
         textarea:focus {
-            background: transparent;
+            outline: none;
+            border: 1px solid #6366f1;
+            background: #ffffff;
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+        }
+
+        textarea:hover {
+            border-color: #c7d2fe;
+        }
+
+        .editor-shell {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .editor-head {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .editor-help {
+            color: #9ca3af;
+            font-size: 12px;
+            line-height: 1.4;
+            text-align: right;
+        }
+
+        .editor-help.active {
+            color: #6b7280;
         }
 
         .footer-actions {
@@ -1299,6 +2173,50 @@
             margin-left: 4px;
             color: var(--text);
             font-size: inherit;
+        }
+
+        .timing-summary-card {
+            margin-top: 16px;
+            padding: 18px 20px;
+            border-radius: 22px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(15, 23, 42, 0.08);
+        }
+
+        .timing-summary-card strong {
+            display: block;
+            font-size: 15px;
+            letter-spacing: 0.02em;
+        }
+
+        .timing-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+            margin-top: 14px;
+        }
+
+        .timing-summary-item {
+            padding: 12px 14px;
+            border-radius: 14px;
+            background: rgba(248, 250, 252, 0.9);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+        }
+
+        .timing-summary-item span {
+            display: block;
+            color: var(--muted);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .timing-summary-item strong {
+            margin-top: 6px;
+            font-size: 15px;
+            line-height: 1.35;
+            color: var(--text);
         }
 
         .drive-panel {
@@ -1875,6 +2793,94 @@
                 width: 100%;
                 justify-content: center;
             }
+
+            .segment-card {
+                padding: 10px;
+                border-radius: 10px;
+            }
+
+            .clip-text-row {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .clip-actions {
+                width: 100%;
+            }
+
+            .player-controls-row {
+                padding-left: 36px;
+            }
+
+            .waveform-context-bar {
+                flex-wrap: wrap;
+                gap: 6px;
+            }
+
+            .player-transport-group {
+                justify-content: center;
+            }
+
+            .controls-footer {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+
+            .controls-left,
+            .controls-center,
+            .controls-right {
+                justify-content: center;
+            }
+
+            .waveform-zoom-controls {
+                width: min(100%, 240px);
+            }
+
+            .player-clip-update {
+                width: 100%;
+            }
+
+            .edit-layout.transcript-collapsed #waveform-container {
+                height: 110px;
+                min-height: 110px;
+            }
+
+            .segment-timestamp-row,
+            .timestamp-row {
+                align-items: stretch;
+                flex-direction: column;
+            }
+
+            .segment-timestamp-field {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .segment-timestamp-input-wrap,
+            .timestamp-box {
+                flex: 1;
+                justify-content: space-between;
+            }
+
+            .segment-timestamp-input {
+                width: 100%;
+            }
+
+            .segment-timestamp-apply,
+            .update-btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .translation-block {
+                margin-top: 2px;
+                padding: 6px 8px;
+                border-radius: 8px;
+            }
+
+            .translation-text {
+                font-size: 12px;
+            }
         }
 
         @media (min-width: 981px) {
@@ -2096,6 +3102,39 @@
                 <div class="surface-card transcript-panel">
                     <div class="segment-header">
                         <span class="segment-badge" id="segmentCount">0 segments</span>
+                        <div class="segment-header-actions">
+                            <div class="voice-style-shell">
+                                <span class="voice-style-label">Voice</span>
+                                <select class="voice-style-select" id="voiceStyle">
+                                    <option value="tutorial">Tutorial</option>
+                                    <option value="friendly">Friendly</option>
+                                    <option value="formal">Formal</option>
+                                </select>
+                                <div class="voice-style-hint" tabindex="0" aria-label="Punctuation guide">
+                                    ℹ
+                                    <div class="voice-style-hint-card">
+                                        <strong>Punctuation Guide</strong>
+                                        <div>. → long pause</div>
+                                        <div>, → short pause</div>
+                                        <div>... → thinking pause</div>
+                                        <div>! → emphasis</div>
+                                        <div>? → question tone</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <button
+                                class="translate-toggle-btn"
+                                id="translateToggleBtn"
+                                type="button"
+                                onclick="toggleTeluguTranslations()"
+                                aria-pressed="false"
+                                title="Show Telugu translation for all clips"
+                            >
+                                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                    <path fill="currentColor" d="M12.87 15.07 9.1 5h1.91l1.91 5.41c.19.54.36 1.07.53 1.62h.07c.18-.55.35-1.08.54-1.62L15.98 5h1.84l-3.8 10.07ZM5 7.5h6v1.5H8.69c-.23 1.44-.79 2.77-1.61 3.91.65.62 1.44 1.15 2.36 1.59l-.73 1.36c-.97-.47-1.83-1.04-2.56-1.72-.78.75-1.7 1.39-2.75 1.92L2.75 14.7c1-.47 1.86-1.04 2.58-1.72-.87-1.11-1.5-2.42-1.83-3.98H1V7.5h4V5h1.5v2.5H5Zm.09 1.5H4.97c.27 1.12.75 2.15 1.41 3.04.58-.84.98-1.84 1.15-3.04H5.09ZM16 17l-1.25 3h-1.62L17.5 9.5h1L23 20h-1.66L20 17h-4Zm3.39-1.5-1.37-3.34-1.39 3.34h2.76Z"/>
+                                </svg>
+                            </button>
+                        </div>
                     </div>
 
                     <div class="segments-list" id="segmentsList">
@@ -2134,6 +3173,7 @@
                         <button class="back-link-btn" id="step2BackBtn" onclick="goBackFromCurrentStep()">Go Back</button>
                         <button class="secondary-btn" id="timelineToggleBtn" onclick="toggleTimelinePanel()" disabled>Show Timeline</button>
                         <button class="secondary-btn" id="playVideoBtn" onclick="toggleFullVideoPlayback()" disabled>▶ Play Video</button>
+                        <button class="secondary-btn" id="playEnglishVideoBtn" onclick="toggleEnglishVideoPlayback()" disabled>▶ Play English Video</button>
                         <button class="primary-btn" id="continueToStep3Btn" onclick="saveAndContinue()" disabled>Save &amp; Continue</button>
                     </div>
                 </div>
@@ -2142,11 +3182,62 @@
                     <div class="video-stack">
                         <div class="video-frame">
                             <div class="video-pop">
-                                <video id="videoPlayer" controls preload="metadata"></video>
+                                <video id="videoPlayer" preload="auto"></video>
                             </div>
                         </div>
-                        <div class="video-meta">
-                            <span class="video-sync-label" id="videoSyncLabel">Video sync ready</span>
+                        <div class="custom-player-shell">
+                            <div id="waveform-container">
+                                <div class="waveform-content" id="waveformContent">
+                                    <div class="waveform-clip-segments" id="waveformClipSegments"></div>
+                                    <div class="waveform-boundary-handles" id="waveformBoundaryHandles"></div>
+                                    <div class="waveform-grid" id="waveformGrid"></div>
+                                    <div id="waveform" class="empty">Waveform will appear after the video loads</div>
+                                </div>
+                            </div>
+                            <div class="player-controls-row">
+                                <div class="controls-footer">
+                                    <div class="controls-left">
+                                        <div class="time-readout">
+                                            <span id="timeChip">00:00</span>
+                                            <span>/</span>
+                                            <span id="totalTimeChip">00:00</span>
+                                        </div>
+                                    </div>
+                                    <div class="controls-center">
+                                        <div class="player-transport-group">
+                                            <button class="player-transport-btn" id="backBtn" type="button" aria-label="Go to previous clip">⏮</button>
+                                            <button class="player-transport-btn primary" id="playBtn" type="button" aria-label="Play or pause video">▶</button>
+                                            <button class="player-transport-btn" id="forwardBtn" type="button" aria-label="Go to next clip">⏭</button>
+                                        </div>
+                                    </div>
+                                    <div class="controls-right">
+                                        <div class="waveform-zoom-controls">
+                                            <label class="waveform-zoom-label" for="waveformZoomSelect">Zoom</label>
+                                            <select class="waveform-zoom-select" id="waveformZoomSelect">
+                                                <option value="1">100%</option>
+                                                <option value="0.75">75%</option>
+                                                <option value="0.5">50%</option>
+                                                <option value="0.25">25%</option>
+                                                <option value="0" selected>0%</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="player-bottom-actions">
+                                <button
+                                    class="player-expand-btn"
+                                    id="playerExpandBtn"
+                                    type="button"
+                                    onclick="toggleTranscriptPanelCollapsed()"
+                                    aria-label="Hide text panel"
+                                    title="Hide text panel"
+                                >
+                                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                        <path fill="currentColor" d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12l4.58-4.59Z"/>
+                                    </svg>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2174,6 +3265,36 @@
                             <span>Clips:<strong id="summaryClipCount">0</strong></span>
                             <span>Text Files:<strong id="summaryTextFileCount">0</strong></span>
                             <span>Segments:<strong id="summarySegmentCount">0</strong></span>
+                        </div>
+                    </div>
+
+                    <div class="timing-summary-card">
+                        <strong>Time Summary</strong>
+                        <div class="timing-summary-grid">
+                            <div class="timing-summary-item">
+                                <span>Started At</span>
+                                <strong id="timingStartedAt">Not started</strong>
+                            </div>
+                            <div class="timing-summary-item">
+                                <span>Completed At</span>
+                                <strong id="timingCompletedAt">Not completed</strong>
+                            </div>
+                            <div class="timing-summary-item">
+                                <span>Total Time</span>
+                                <strong id="timingTotalElapsed">00:00</strong>
+                            </div>
+                            <div class="timing-summary-item">
+                                <span>Upload + Process</span>
+                                <strong id="timingUploadElapsed">00:00</strong>
+                            </div>
+                            <div class="timing-summary-item">
+                                <span>Active Edit Time</span>
+                                <strong id="timingEditElapsed">00:00</strong>
+                            </div>
+                            <div class="timing-summary-item">
+                                <span>Download Time</span>
+                                <strong id="timingDownloadElapsed">00:00</strong>
+                            </div>
                         </div>
                     </div>
 
@@ -2205,6 +3326,10 @@
     </main>
 </div>
 
+<div class="site-version-badge" aria-label="Application version">
+    Version 2
+</div>
+
 <div class="leave-guard-overlay" id="leaveGuardOverlay">
     <div class="leave-guard-card">
         <h3>Are you sure you want to leave?</h3>
@@ -2228,9 +3353,11 @@
     </div>
 </div>
 
+<script src="https://unpkg.com/wavesurfer.js@7/dist/wavesurfer.min.js"></script>
 <script>
 const APP_STATE_KEY = "video_text_ui.app_state.v2";
 const PROCESSING_HISTORY_KEY = "video_text_ui.processing_history";
+const DEV_AUTO_RELOAD_RESTORE_KEY = "video_text_ui.dev_auto_reload_restore";
 let currentStep = 1;
 let selectedFile = null;
 let localVideoUrl = "";
@@ -2245,6 +3372,7 @@ let transcriptDirty = false;
 let committedSegmentsData = [];
 let selectedFileSizeBytes = 0;
 let selectedVideoDurationSeconds = 0;
+let selectedVideoFps = 30;
 let generatedSummary = {
     clips: 0,
     textFiles: 0,
@@ -2254,8 +3382,16 @@ let savedDriveFolderUrl = "";
 let selectedFileName = "";
 let videoPlayer;
 let transcriptWords = [];
-let activeSegmentIndex = null;
-let activeSegmentEnd = null;
+let activeClip = null;
+let clipPlayback = {
+    active: false,
+    start: 0,
+    end: 0,
+    safeEnd: 0,
+};
+let activeSegmentPlaybackRaf = null;
+let activeSegmentStopTimeoutId = null;
+let activeVideoFrameCallbackId = null;
 let activeSyncedClipIndex = null;
 let isFullVideoMode = false;
 let lastSyncUpdateAt = 0;
@@ -2265,9 +3401,72 @@ let timelineZoomLevel = 1;
 let timelineSelectedIndices = [];
 let timelinePlayheadRaf = null;
 let showAllTelugu = false;
+let englishVideoUrl = "";
+let englishVideoSignature = "";
+let activeEnglishClipIndex = null;
+let activeEnglishClipAudio = null;
+let selectedVoiceStyle = "tutorial";
+let waveform = null;
+let waveformPeaks = [];
+const waveformPeaksCache = new Map();
+let videoAudioContext = null;
+let videoAudioSourceNode = null;
+let videoAudioGainNode = null;
+let customPlayerDragging = false;
+let waveformPanDragging = false;
+let waveformPanStartX = 0;
+let waveformPanStartScrollLeft = 0;
+let suppressWaveformClickSeek = false;
+let waveformBoundaryDragState = null;
+let timeChipCopiedTimer = null;
+let transcriptPanelCollapsed = false;
+let waveformGridRenderKey = "";
+let waveformZoomLevel = 0;
+let waveformZoomDebounce = null;
+let waveformRedrawRaf = null;
+let isWaveformRendering = false;
+let waveformOverlayRenderRaf = null;
+let waveformOverlayRenderToken = 0;
+let waveformUiUpdateRaf = null;
+let lastWaveformUiUpdateAt = 0;
+let lastWaveformActiveClipIndex = null;
+let isWaveformZooming = false;
+let timelineRenderRaf = null;
+let timelineRenderToken = 0;
+const WAVEFORM_CACHE_STORAGE_KEY = "videoTextEditor.waveformPeaks";
+const MAX_CACHED_WAVEFORM_PEAKS = 4000;
+const EDIT_ACTIVITY_IDLE_MS = 90000;
+const SEGMENT_STOP_EPSILON = 0.01;
+const FRAME_MARGIN = 0.12;
+const AUTO_TRANSCRIBE_DELAY_MS = 3000;
+const translationTimers = new Map();
+const translationCache = new Map();
+const englishAudioQueueTimers = new Map();
+const clipTimestampDrafts = new Map();
+let modifiedClipTranscribeTimer = null;
+let englishAudioStatusPoller = null;
+let englishAudioBackgroundSummary = {
+    total: 0,
+    ready: 0,
+    generating: 0,
+    errors: 0
+};
 let allowPageUnload = false;
 let pendingLeaveIntent = null;
 let pendingStepTarget = null;
+let lastTranscriptEditAt = 0;
+let sessionTiming = {
+    startedAt: null,
+    processedAt: null,
+    downloadStartedAt: null,
+    completedAt: null,
+    activeEditMs: 0,
+    activeEditStartedAt: null,
+    idleTimeoutId: null,
+};
+const DEV_AUTO_RELOAD_ENABLED = {{ "true" if dev_auto_reload else "false" }};
+let devReloadToken = {{ dev_reload_token|tojson }};
+let devReloadPoller = null;
 const expandedTimestampSegments = new Set();
 let loadingState = {
     active: false,
@@ -2295,24 +3494,62 @@ let loadingState = {
 
 window.onload = async () => {
     videoPlayer = document.getElementById("videoPlayer");
+    const waveformContainer = document.getElementById("waveform-container");
+    document.querySelector('label[for="fileInput"]')?.addEventListener("click", markSessionStarted);
+    document.getElementById("fileInput")?.addEventListener("click", markSessionStarted);
+    if (videoPlayer) {
+        videoPlayer.preload = "auto";
+    }
 
-    videoPlayer.addEventListener("timeupdate", handleSegmentPlayback);
     videoPlayer.addEventListener("timeupdate", handleVideoSync);
+    videoPlayer.addEventListener("timeupdate", updateCustomVideoPlayerUi);
     videoPlayer.addEventListener("ended", resetActivePlayback);
     videoPlayer.addEventListener("ended", resetSyncedClipState);
     videoPlayer.addEventListener("ended", resetFullVideoPlaybackState);
     videoPlayer.addEventListener("play", syncPlayPauseLabel);
     videoPlayer.addEventListener("pause", syncPlayPauseLabel);
+    videoPlayer.addEventListener("pause", handleClipPlaybackPause);
+    videoPlayer.addEventListener("seeking", handleVideoSeeking);
     videoPlayer.addEventListener("seeked", handleVideoSeeked);
+    videoPlayer.addEventListener("seeked", updateCustomVideoPlayerUi);
+    videoPlayer.addEventListener("loadedmetadata", handleCustomPlayerLoadedMetadata);
+    videoPlayer.addEventListener("click", toggleInlineVideoPlayback);
     document.getElementById("timelineTrack").addEventListener("click", handleTimelineTrackClick);
+    document.getElementById("backBtn")?.addEventListener("click", playPreviousClip);
+    document.getElementById("playBtn")?.addEventListener("click", toggleMainPlayback);
+    document.getElementById("forwardBtn")?.addEventListener("click", playNextClip);
+    const waveformZoomSelect = document.getElementById("waveformZoomSelect");
+    waveformZoomSelect?.addEventListener("change", handleWaveformZoomSelect);
+    waveformContainer?.addEventListener("click", handleWaveformClickSeek);
+    waveformContainer?.addEventListener("mousedown", startWaveformPan);
+    waveformContainer?.addEventListener("scroll", handleWaveformContainerScroll, { passive: true });
+    window.addEventListener("mousemove", handleWaveformPanMove);
+    window.addEventListener("mouseup", stopWaveformPan);
+    window.addEventListener("resize", () => {
+        applyWaveformScale({
+            keepCenteredTime: Number(videoPlayer?.currentTime || 0),
+        });
+    });
 
     document.getElementById("fileInput").addEventListener("change", handleFileSelection);
     document.getElementById("driveFolderUrl").addEventListener("input", (event) => {
         savedDriveFolderUrl = event.target.value.trim();
         saveAppState();
     });
+    document.getElementById("voiceStyle").addEventListener("change", handleVoiceStyleChange);
     document.addEventListener("keydown", handlePotentialRefreshShortcut);
     document.addEventListener("keydown", handleEditorKeyboardShortcuts);
+    ["pointerdown", "keydown", "input", "change"].forEach((eventName) => {
+        document.addEventListener(eventName, () => trackActiveEditActivity(), { passive: eventName === "pointerdown" });
+    });
+    videoPlayer?.addEventListener("play", () => trackActiveEditActivity(true));
+    videoPlayer?.addEventListener("pause", () => {
+        if (currentStep === 2) {
+            stopActiveEditTracking();
+            renderTimingSummary();
+            saveAppState();
+        }
+    });
     window.addEventListener("beforeunload", handleBeforeUnload);
     [1, 2, 3].forEach((step) => {
         document.getElementById(`progress-step-${step}`).addEventListener("click", () => {
@@ -2320,14 +3557,147 @@ window.onload = async () => {
         });
     });
 
+    syncVoiceStyleUi();
     updateDriveAvailabilityUi();
     refreshUiState();
+    syncTranscriptPanelCollapsedUi();
+    syncWaveformZoomUi();
+    applyWaveformScale();
+    updateCustomVideoPlayerUi();
+    renderTimingSummary();
+    startDevAutoRefresh();
     await bootstrapSavedSession();
 };
+
+function startDevAutoRefresh() {
+    if (!DEV_AUTO_RELOAD_ENABLED || devReloadPoller) {
+        return;
+    }
+
+    devReloadPoller = window.setInterval(async () => {
+        try {
+            const response = await fetch(`/__dev__/reload-token?ts=${Date.now()}`, {
+                cache: "no-store",
+            });
+            if (!response.ok) {
+                return;
+            }
+
+            const data = await response.json();
+            if (!data.enabled) {
+                return;
+            }
+
+            if (devReloadToken && data.token && data.token !== devReloadToken) {
+                allowPageUnload = true;
+                sessionStorage.setItem(DEV_AUTO_RELOAD_RESTORE_KEY, "1");
+                window.location.reload();
+                return;
+            }
+
+            devReloadToken = data.token || devReloadToken;
+        } catch (error) {
+            console.debug("Waiting for dev server reload", error);
+        }
+    }, 1000);
+}
+
+function syncTranscriptPanelCollapsedUi() {
+    const layout = document.querySelector(".edit-layout");
+    const button = document.getElementById("playerExpandBtn");
+    if (!layout || !button) {
+        return;
+    }
+
+    layout.classList.toggle("transcript-collapsed", transcriptPanelCollapsed);
+    button.setAttribute("aria-label", transcriptPanelCollapsed ? "Show text panel" : "Hide text panel");
+    button.setAttribute("title", transcriptPanelCollapsed ? "Show text panel" : "Hide text panel");
+    button.innerHTML = transcriptPanelCollapsed
+        ? `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path fill="currentColor" d="m8.59 16.59 1.41 1.41 6-6-6-6-1.41 1.41L13.17 12l-4.58 4.59Z"/>
+           </svg>`
+        : `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path fill="currentColor" d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12l4.58-4.59Z"/>
+           </svg>`;
+}
+
+function refreshWaveformLayout() {
+    const waveformHeight = transcriptPanelCollapsed ? 116 : 84;
+
+    if (waveform && typeof waveform.setOptions === "function") {
+        waveform.setOptions({
+            height: waveformHeight,
+        });
+    }
+
+    window.requestAnimationFrame(() => {
+        applyWaveformScale({
+            keepCenteredTime: Number(videoPlayer?.currentTime || 0),
+        });
+        scheduleWaveformClipSegmentsRender();
+        requestWaveformUiUpdate(true);
+        if (timelineVisible) {
+            requestTimelineRender();
+        }
+    });
+}
+
+function toggleTranscriptPanelCollapsed(forceValue = null) {
+    transcriptPanelCollapsed = typeof forceValue === "boolean" ? forceValue : !transcriptPanelCollapsed;
+    syncTranscriptPanelCollapsedUi();
+    refreshWaveformLayout();
+}
 
 function toggleTheme() {
     document.body.classList.toggle("dark");
     saveAppState();
+}
+
+async function ensureVideoAudioGraph() {
+    if (!videoPlayer || typeof window.AudioContext === "undefined") {
+        return false;
+    }
+
+    if (!videoAudioContext) {
+        const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextCtor) {
+            return false;
+        }
+
+        videoAudioContext = new AudioContextCtor();
+        videoAudioSourceNode = videoAudioContext.createMediaElementSource(videoPlayer);
+        videoAudioGainNode = videoAudioContext.createGain();
+        videoAudioGainNode.gain.value = 1;
+        videoAudioSourceNode.connect(videoAudioGainNode);
+        videoAudioGainNode.connect(videoAudioContext.destination);
+    }
+
+    if (videoAudioContext.state === "suspended") {
+        try {
+            await videoAudioContext.resume();
+        } catch (error) {
+            console.warn("Unable to resume video audio context", error);
+            return false;
+        }
+    }
+
+    return true;
+}
+
+function setVideoOutputMuted(muted) {
+    const shouldMute = Boolean(muted);
+    let usedAudioGraph = false;
+
+    if (videoAudioGainNode && videoAudioContext) {
+        const now = videoAudioContext.currentTime;
+        videoAudioGainNode.gain.cancelScheduledValues(now);
+        videoAudioGainNode.gain.setValueAtTime(shouldMute ? 0 : 1, now);
+        usedAudioGraph = true;
+    }
+
+    if (videoPlayer) {
+        videoPlayer.muted = usedAudioGraph ? false : shouldMute;
+    }
 }
 
 function collectAppState() {
@@ -2336,12 +3706,16 @@ function collectAppState() {
         selectedFileName,
         videoPath,
         previewUrl,
+        englishVideoUrl,
+        englishVideoSignature,
+        selectedVoiceStyle,
         segmentsData,
         transcriptWords,
         committedSegmentsData,
         transcriptDirty,
         selectedFileSizeBytes,
         selectedVideoDurationSeconds,
+        selectedVideoFps,
         hasProcessed,
         hasGenerated,
         generatedSummary,
@@ -2351,6 +3725,16 @@ function collectAppState() {
         timelineVisible,
         timelineZoomLevel,
         timelineSelectedIndices,
+        transcriptPanelCollapsed,
+        showAllTelugu,
+        sessionTiming: {
+            startedAt: sessionTiming.startedAt,
+            processedAt: sessionTiming.processedAt,
+            downloadStartedAt: sessionTiming.downloadStartedAt,
+            completedAt: sessionTiming.completedAt,
+            activeEditMs: sessionTiming.activeEditMs,
+            activeEditStartedAt: sessionTiming.activeEditStartedAt,
+        },
         uploadStatus: document.getElementById("uploadStatus").innerText,
         theme: document.body.classList.contains("dark") ? "dark" : "light"
     };
@@ -2372,6 +3756,28 @@ function loadAppState() {
         console.warn("Unable to load app state", error);
         return null;
     }
+}
+
+function getSelectedVoiceStyle() {
+    const select = document.getElementById("voiceStyle");
+    return select?.value || selectedVoiceStyle || "tutorial";
+}
+
+function syncVoiceStyleUi() {
+    const select = document.getElementById("voiceStyle");
+    if (select) {
+        select.value = selectedVoiceStyle || "tutorial";
+    }
+}
+
+function handleVoiceStyleChange(event) {
+    selectedVoiceStyle = event.target.value || "tutorial";
+    markAllEnglishAudioDirty();
+    queueEnglishAudioGeneration({ invalidate: false }).catch((error) => {
+        console.warn("Unable to queue English audio generation", error);
+    });
+    renderSegments();
+    saveAppState();
 }
 
 function clearPersistedState() {
@@ -2442,6 +3848,13 @@ async function bootstrapSavedSession() {
         return;
     }
 
+    const shouldAutoRestore = sessionStorage.getItem(DEV_AUTO_RELOAD_RESTORE_KEY) === "1";
+    if (shouldAutoRestore) {
+        sessionStorage.removeItem(DEV_AUTO_RELOAD_RESTORE_KEY);
+        await restoreSavedSession(savedState);
+        return;
+    }
+
     const shouldRestore = window.confirm("Restore previous session?");
     if (!shouldRestore) {
         clearPersistedState();
@@ -2469,8 +3882,12 @@ async function restoreSavedSession(savedState) {
         transcriptDirty = Boolean(savedState.transcriptDirty);
         selectedFileSizeBytes = Number(savedState.selectedFileSizeBytes || 0);
         selectedVideoDurationSeconds = Number(savedState.selectedVideoDurationSeconds || 0);
+        selectedVideoFps = Number(savedState.selectedVideoFps || 30);
         videoPath = savedState.videoPath || "";
         previewUrl = savedState.previewUrl || "";
+        englishVideoUrl = savedState.englishVideoUrl || "";
+        englishVideoSignature = savedState.englishVideoSignature || "";
+        selectedVoiceStyle = savedState.selectedVoiceStyle || "tutorial";
         hasProcessed = Boolean(savedState.hasProcessed);
         hasGenerated = Boolean(savedState.hasGenerated);
         generatedSummary = {
@@ -2483,9 +3900,32 @@ async function restoreSavedSession(savedState) {
         timelineVisible = Boolean(savedState.timelineVisible);
         timelineZoomLevel = Number(savedState.timelineZoomLevel || 1);
         timelineSelectedIndices = Array.isArray(savedState.timelineSelectedIndices) ? savedState.timelineSelectedIndices : [];
+        transcriptPanelCollapsed = Boolean(savedState.transcriptPanelCollapsed);
+        showAllTelugu = Boolean(savedState.showAllTelugu);
+        sessionTiming = {
+            startedAt: Number(savedState.sessionTiming?.startedAt || 0) || null,
+            processedAt: Number(savedState.sessionTiming?.processedAt || 0) || null,
+            downloadStartedAt: Number(savedState.sessionTiming?.downloadStartedAt || 0) || null,
+            completedAt: Number(savedState.sessionTiming?.completedAt || 0) || null,
+            activeEditMs: Number(savedState.sessionTiming?.activeEditMs || 0),
+            activeEditStartedAt: Number(savedState.sessionTiming?.activeEditStartedAt || 0) || null,
+            idleTimeoutId: null,
+        };
+        clipTimestampDrafts.clear();
+        decorateSegmentsForEnglishAudio();
+        syncVoiceStyleUi();
 
         if (savedState.uploadStatus) {
             document.getElementById("uploadStatus").innerText = savedState.uploadStatus;
+        }
+
+        if (hasProcessed && videoPath && segmentsData.length) {
+            startEnglishAudioStatusPolling();
+            if (getSelectedVoiceStyle() !== "tutorial") {
+                queueEnglishAudioGeneration({ invalidate: false }).catch((error) => {
+                    console.warn("Unable to queue English audio generation", error);
+                });
+            }
         }
 
         document.getElementById("selectedFileName").innerText = selectedFileName || "No file selected yet";
@@ -2519,7 +3959,12 @@ async function restoreSavedSession(savedState) {
 
         setPreviewSource(previewUrl);
         renderSegments();
+        if (showAllTelugu) {
+            requestAllSegmentTranslations();
+        }
+        syncTranscriptPanelCollapsedUi();
         refreshUiState();
+        renderTimingSummary();
 
         if (savedState.drivePanelOpen && driveUploadConfigured && hasGenerated) {
             document.getElementById("drivePanel").classList.remove("hidden");
@@ -2538,12 +3983,22 @@ async function restoreSavedSession(savedState) {
 }
 
 function resetApplicationState() {
+    stopEnglishAudioStatusPolling();
+    stopActiveEditTracking();
     selectedFile = null;
     selectedFileName = "";
     segmentsData = [];
     transcriptWords = [];
     videoPath = "";
     previewUrl = "";
+    englishVideoUrl = "";
+    englishVideoSignature = "";
+    englishAudioBackgroundSummary = {
+        total: 0,
+        ready: 0,
+        generating: 0,
+        errors: 0
+    };
     hasProcessed = false;
     hasGenerated = false;
     generatedSummary = {
@@ -2556,6 +4011,7 @@ function resetApplicationState() {
     committedSegmentsData = [];
     selectedFileSizeBytes = 0;
     selectedVideoDurationSeconds = 0;
+    selectedVideoFps = 30;
     savedDriveFolderUrl = "";
     resetActivePlayback();
     revokeLocalVideo();
@@ -2564,15 +4020,33 @@ function resetApplicationState() {
     timelineDragState = null;
     timelineZoomLevel = 1;
     timelineSelectedIndices = [];
+    transcriptPanelCollapsed = false;
+    showAllTelugu = false;
+    sessionTiming = {
+        startedAt: null,
+        processedAt: null,
+        downloadStartedAt: null,
+        completedAt: null,
+        activeEditMs: 0,
+        activeEditStartedAt: null,
+        idleTimeoutId: null,
+    };
+    clearTranslationTimers();
+    clipTimestampDrafts.clear();
+    englishAudioQueueTimers.forEach((timerId) => window.clearTimeout(timerId));
+    englishAudioQueueTimers.clear();
+    stopEnglishClipPlayback();
     document.getElementById("selectedFileName").innerText = "No file selected yet";
     document.getElementById("selectedWorkflowFileName").innerText = "No file selected yet";
     document.getElementById("uploadStatus").innerText = "No file selected";
     document.getElementById("driveFolderUrl").value = "";
     document.getElementById("drivePanel").classList.add("hidden");
     clearDriveMessages();
+    syncTranscriptPanelCollapsedUi();
     renderSegments();
     goToStep(1, { skipSave: true });
     refreshUiState();
+    renderTimingSummary();
 }
 
 function startOver() {
@@ -2589,6 +4063,14 @@ async function handleFileSelection(event) {
     }
 
     clearError();
+    markSessionStarted();
+    stopActiveEditTracking();
+    sessionTiming.processedAt = null;
+    sessionTiming.downloadStartedAt = null;
+    sessionTiming.completedAt = null;
+    sessionTiming.activeEditMs = 0;
+    sessionTiming.activeEditStartedAt = null;
+    stopEnglishAudioStatusPolling();
     selectedFile = file;
     selectedFileName = file.name;
     selectedFileSizeBytes = file.size || 0;
@@ -2597,10 +4079,21 @@ async function handleFileSelection(event) {
     committedSegmentsData = [];
     segmentsData = [];
     transcriptWords = [];
+    englishAudioBackgroundSummary = {
+        total: 0,
+        ready: 0,
+        generating: 0,
+        errors: 0
+    };
     timelineVisible = false;
     timelineDragState = null;
     timelineZoomLevel = 1;
     timelineSelectedIndices = [];
+    showAllTelugu = false;
+    clearTranslationTimers();
+    englishVideoUrl = "";
+    englishVideoSignature = "";
+    stopEnglishClipPlayback();
     videoPath = "";
     previewUrl = "";
     hasProcessed = false;
@@ -2627,6 +4120,7 @@ async function handleFileSelection(event) {
     setPreviewSource(localVideoUrl);
     renderSegments();
     refreshUiState();
+    renderTimingSummary();
     saveAppState();
 }
 
@@ -2676,6 +4170,437 @@ function updateProgressLine(stepNumber) {
     progressLine.style.width = widthMap[stepNumber] || "0%";
 }
 
+function getWaveformPixelsPerSecond() {
+    if (waveformZoomLevel <= 0) {
+        const duration = Number(videoPlayer?.duration || getTimelineDuration() || 0);
+        const container = document.getElementById("waveform-container");
+        const viewportWidth = Number(container?.clientWidth || 0);
+        return duration > 0 && viewportWidth > 0
+            ? Math.max(viewportWidth / duration, 1)
+            : 1;
+    }
+
+    const baseScale = transcriptPanelCollapsed ? 48 : 32;
+    return baseScale * waveformZoomLevel;
+}
+
+function getWaveformTimelineWidth(duration = Number(videoPlayer?.duration || getTimelineDuration() || 0)) {
+    const container = document.getElementById("waveform-container");
+    const viewportWidth = Number(container?.clientWidth || 0);
+    return Math.max(viewportWidth, Math.round(duration * getWaveformPixelsPerSecond()));
+}
+
+function getWaveformCacheKey() {
+    return String(videoPath || videoPlayer?.currentSrc || videoPlayer?.src || "");
+}
+
+function normalizeWaveformPeaksForCache(peaks) {
+    if (!Array.isArray(peaks) || !peaks.length) {
+        return [];
+    }
+
+    if (peaks.length <= MAX_CACHED_WAVEFORM_PEAKS) {
+        return peaks.map((value) => Math.max(-1, Math.min(1, Number(value) || 0)));
+    }
+
+    const normalized = [];
+    const step = peaks.length / MAX_CACHED_WAVEFORM_PEAKS;
+    for (let index = 0; index < MAX_CACHED_WAVEFORM_PEAKS; index += 1) {
+        const sourceIndex = Math.min(peaks.length - 1, Math.floor(index * step));
+        normalized.push(Math.max(-1, Math.min(1, Number(peaks[sourceIndex]) || 0)));
+    }
+    return normalized;
+}
+
+function readWaveformPeaksCache(cacheKey) {
+    if (!cacheKey) {
+        return [];
+    }
+
+    if (waveformPeaksCache.has(cacheKey)) {
+        return waveformPeaksCache.get(cacheKey) || [];
+    }
+
+    try {
+        const rawCache = window.localStorage.getItem(WAVEFORM_CACHE_STORAGE_KEY);
+        const parsedCache = rawCache ? JSON.parse(rawCache) : {};
+        const cachedPeaks = Array.isArray(parsedCache?.[cacheKey]) ? parsedCache[cacheKey] : [];
+        waveformPeaksCache.set(cacheKey, cachedPeaks);
+        return cachedPeaks;
+    } catch (error) {
+        console.warn("Unable to read waveform cache", error);
+        return [];
+    }
+}
+
+function writeWaveformPeaksCache(cacheKey, peaks) {
+    if (!cacheKey) {
+        return;
+    }
+
+    const normalizedPeaks = normalizeWaveformPeaksForCache(peaks);
+    waveformPeaksCache.set(cacheKey, normalizedPeaks);
+
+    try {
+        const rawCache = window.localStorage.getItem(WAVEFORM_CACHE_STORAGE_KEY);
+        const parsedCache = rawCache ? JSON.parse(rawCache) : {};
+        parsedCache[cacheKey] = normalizedPeaks;
+        window.localStorage.setItem(WAVEFORM_CACHE_STORAGE_KEY, JSON.stringify(parsedCache));
+    } catch (error) {
+        console.warn("Unable to write waveform cache", error);
+    }
+}
+
+function ensureWaveformPeaksCanvas() {
+    const container = document.getElementById("waveform");
+    if (!container) {
+        return null;
+    }
+
+    let canvas = document.getElementById("waveformPeaksCanvas");
+    if (!canvas) {
+        canvas = document.createElement("canvas");
+        canvas.id = "waveformPeaksCanvas";
+        canvas.className = "waveform-peaks-canvas";
+        container.appendChild(canvas);
+    }
+
+    return canvas;
+}
+
+function renderWaveformPeakCanvas() {
+    const canvas = ensureWaveformPeaksCanvas();
+    const content = document.getElementById("waveformContent");
+    const waveformContainer = document.getElementById("waveform");
+    if (!canvas || !content || !waveformContainer) {
+        return;
+    }
+
+    const duration = Number(videoPlayer?.duration || getTimelineDuration() || 0);
+    const contentWidth = Math.max(1, getWaveformTimelineWidth(duration));
+    const cssHeight = Math.max(24, Number(waveformContainer.clientHeight || 74));
+    const dpr = Math.max(window.devicePixelRatio || 1, 1);
+    canvas.style.width = `${contentWidth}px`;
+    canvas.style.height = `${cssHeight}px`;
+    canvas.width = Math.max(1, Math.round(contentWidth * dpr));
+    canvas.height = Math.max(1, Math.round(cssHeight * dpr));
+
+    const context = canvas.getContext("2d");
+    if (!context) {
+        return;
+    }
+
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    context.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (!Array.isArray(waveformPeaks) || !waveformPeaks.length) {
+        return;
+    }
+
+    context.scale(dpr, dpr);
+    context.strokeStyle = "#9aa0a6";
+    context.lineWidth = 1;
+
+    const midY = cssHeight / 2;
+    const sampleCount = Math.min(waveformPeaks.length, Math.max(64, Math.floor(contentWidth / 2)));
+    const step = waveformPeaks.length / sampleCount;
+
+    for (let index = 0; index < sampleCount; index += 1) {
+        const sourceIndex = Math.min(waveformPeaks.length - 1, Math.floor(index * step));
+        const amplitude = Math.max(0.02, Math.abs(Number(waveformPeaks[sourceIndex]) || 0));
+        const x = (index / Math.max(sampleCount - 1, 1)) * contentWidth;
+        const halfHeight = Math.max(1, amplitude * (cssHeight * 0.42));
+        context.beginPath();
+        context.moveTo(x, midY - halfHeight);
+        context.lineTo(x, midY + halfHeight);
+        context.stroke();
+    }
+}
+
+function refreshWaveform() {
+    const container = document.getElementById("waveform");
+    if (!waveform || !container || container.offsetWidth === 0) {
+        renderWaveformPeakCanvas();
+        return;
+    }
+
+    if (isWaveformRendering || waveformRedrawRaf) {
+        return;
+    }
+
+    isWaveformRendering = true;
+    waveformRedrawRaf = window.requestAnimationFrame(() => {
+        waveformRedrawRaf = null;
+        try {
+            if (typeof waveform.drawBuffer === "function") {
+                waveform.drawBuffer();
+            }
+        } catch (error) {
+            console.warn("Unable to refresh waveform", error);
+        } finally {
+            isWaveformRendering = false;
+            renderWaveformPeakCanvas();
+        }
+    });
+}
+
+function syncWaveformZoomUi() {
+    const select = document.getElementById("waveformZoomSelect");
+    if (select) {
+        select.value = String(waveformZoomLevel);
+    }
+}
+
+function syncWaveformClipSegmentActiveState(index, isActive) {
+    const node = document.querySelector(`.waveform-clip-segment[data-index="${index}"]`);
+    if (!node) {
+        return;
+    }
+
+    node.classList.toggle("active", isActive);
+    const clipBackground = node.querySelector(".clip-bg");
+    if (clipBackground) {
+        clipBackground.style.backgroundColor = getWaveformClipTint(index, isActive);
+    }
+}
+
+function syncWaveformActiveClipState() {
+    if (lastWaveformActiveClipIndex !== null && lastWaveformActiveClipIndex !== activeSyncedClipIndex) {
+        syncWaveformClipSegmentActiveState(lastWaveformActiveClipIndex, false);
+    }
+
+    if (activeSyncedClipIndex !== null) {
+        syncWaveformClipSegmentActiveState(activeSyncedClipIndex, true);
+    }
+
+    lastWaveformActiveClipIndex = activeSyncedClipIndex;
+}
+
+function requestWaveformUiUpdate(force = false) {
+    const now = Date.now();
+    if (!force && now - lastWaveformUiUpdateAt < 50) {
+        if (waveformUiUpdateRaf) {
+            return;
+        }
+        waveformUiUpdateRaf = window.setTimeout(() => {
+            waveformUiUpdateRaf = null;
+            requestWaveformUiUpdate(true);
+        }, 50 - (now - lastWaveformUiUpdateAt));
+        return;
+    }
+
+    if (waveformUiUpdateRaf) {
+        window.clearTimeout(waveformUiUpdateRaf);
+        waveformUiUpdateRaf = null;
+    }
+
+    lastWaveformUiUpdateAt = Date.now();
+    updateCustomVideoPlayerUi();
+}
+
+function requestTimelineRender(immediate = false) {
+    const render = () => {
+        timelineRenderRaf = null;
+        performTimelineRender();
+    };
+
+    if (immediate) {
+        if (timelineRenderRaf) {
+            window.cancelAnimationFrame(timelineRenderRaf);
+            timelineRenderRaf = null;
+        }
+        render();
+        return;
+    }
+
+    if (timelineRenderRaf) {
+        return;
+    }
+
+    timelineRenderRaf = window.requestAnimationFrame(render);
+}
+
+function scheduleWaveformClipSegmentsRender(options = {}) {
+    const { immediate = false } = options;
+    const renderToken = ++waveformOverlayRenderToken;
+
+    const startRender = () => {
+        waveformOverlayRenderRaf = null;
+        renderWaveformClipSegments(renderToken);
+    };
+
+    if (immediate) {
+        if (waveformOverlayRenderRaf) {
+            window.cancelAnimationFrame(waveformOverlayRenderRaf);
+            waveformOverlayRenderRaf = null;
+        }
+        startRender();
+        return;
+    }
+
+    if (waveformOverlayRenderRaf) {
+        return;
+    }
+
+    waveformOverlayRenderRaf = window.requestAnimationFrame(startRender);
+}
+
+function commitWaveformZoom(value, options = {}) {
+    const { immediate = false } = options;
+    const normalizedValue = Math.round(Number(value) * 100) / 100;
+    waveformZoomLevel = Math.min(1, Math.max(0, normalizedValue));
+    syncWaveformZoomUi();
+
+    const applyZoom = () => {
+        applyWaveformScale({
+            keepCenteredTime: Number(videoPlayer?.currentTime || 0),
+        });
+    };
+
+    if (immediate) {
+        window.clearTimeout(waveformZoomDebounce);
+        waveformZoomDebounce = null;
+        applyZoom();
+        return;
+    }
+
+    window.clearTimeout(waveformZoomDebounce);
+    waveformZoomDebounce = window.setTimeout(() => {
+        waveformZoomDebounce = null;
+        applyZoom();
+    }, 80);
+}
+
+function finishWaveformZoomInteraction() {
+    isWaveformZooming = false;
+    commitWaveformZoom(waveformZoomLevel, { immediate: true });
+}
+
+function applyWaveformScale(options = {}) {
+    const { keepCenteredTime = null } = options;
+    const content = document.getElementById("waveformContent");
+    if (!content) {
+        return;
+    }
+
+    const duration = Number(videoPlayer?.duration || getTimelineDuration() || 0);
+    const nextWidth = getWaveformTimelineWidth(duration);
+    if (content.style.width !== `${nextWidth}px`) {
+        content.style.width = `${nextWidth}px`;
+    }
+
+    if (waveform && typeof waveform.setOptions === "function") {
+        waveform.setOptions({
+            minPxPerSec: getWaveformPixelsPerSecond(),
+        });
+    }
+
+    if (waveform && typeof waveform.zoom === "function") {
+        waveform.zoom(getWaveformPixelsPerSecond());
+    }
+
+    syncWaveformZoomUi();
+
+    window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+            refreshWaveform();
+            if (keepCenteredTime !== null && !isWaveformZooming) {
+                keepWaveformTimeInView(keepCenteredTime, { center: true, force: true });
+            }
+            renderWaveformPeakCanvas();
+            scheduleWaveformClipSegmentsRender();
+            requestWaveformUiUpdate(true);
+        });
+    });
+}
+
+function setWaveformZoomLevel(nextZoomLevel) {
+    commitWaveformZoom(nextZoomLevel);
+}
+
+function handleWaveformZoomSelect(event) {
+    isWaveformZooming = false;
+    setWaveformZoomLevel(Number(event.target.value || 1));
+}
+
+function keepWaveformTimeInView(time, options = {}) {
+    const { center = true, force = false } = options;
+    const container = document.getElementById("waveform-container");
+    const content = document.getElementById("waveformContent");
+    const duration = Number(videoPlayer?.duration || getTimelineDuration() || 0);
+    if (!container || !content || duration <= 0) {
+        return;
+    }
+
+    const timelineWidth = Number(content.scrollWidth || content.clientWidth || 0);
+    const playheadX = (Math.max(0, Math.min(Number(time || 0), duration)) / duration) * timelineWidth;
+    const visibleStart = container.scrollLeft;
+    const visibleEnd = visibleStart + container.clientWidth;
+    const padding = Math.max(40, container.clientWidth * 0.15);
+
+    if (!force && playheadX >= visibleStart + padding && playheadX <= visibleEnd - padding) {
+        return;
+    }
+
+    const targetScrollLeft = center
+        ? playheadX - (container.clientWidth / 2)
+        : playheadX - padding;
+
+    container.scrollLeft = Math.max(0, Math.min(targetScrollLeft, timelineWidth - container.clientWidth));
+}
+
+function startWaveformPan(event) {
+    if (!event.target.closest("#waveformContent") || event.target.closest(".waveform-boundary-handle")) {
+        return;
+    }
+
+    const container = document.getElementById("waveform-container");
+    if (!container) {
+        return;
+    }
+
+    waveformPanDragging = true;
+    waveformPanStartX = event.pageX - container.offsetLeft;
+    waveformPanStartScrollLeft = container.scrollLeft;
+    suppressWaveformClickSeek = false;
+    container.classList.add("dragging");
+}
+
+function handleWaveformPanMove(event) {
+    if (!waveformPanDragging) {
+        return;
+    }
+
+    const container = document.getElementById("waveform-container");
+    if (!container) {
+        return;
+    }
+
+    const x = event.pageX - container.offsetLeft;
+    const walk = (x - waveformPanStartX) * 1.5;
+    if (Math.abs(walk) > 4) {
+        suppressWaveformClickSeek = true;
+    }
+    container.scrollLeft = waveformPanStartScrollLeft - walk;
+}
+
+function stopWaveformPan() {
+    if (!waveformPanDragging) {
+        return;
+    }
+
+    const container = document.getElementById("waveform-container");
+    waveformPanDragging = false;
+    container?.classList.remove("dragging");
+    window.setTimeout(() => {
+        suppressWaveformClickSeek = false;
+    }, 0);
+}
+
+function handleWaveformContainerScroll() {
+    requestWaveformUiUpdate();
+}
+
 function cloneSegments(data) {
     return JSON.parse(JSON.stringify(data || []));
 }
@@ -2687,6 +4612,936 @@ function cleanTranscriptText(text) {
         .replace(/\s+\)/g, ")")
         .replace(/\s{2,}/g, " ")
         .trim();
+}
+
+function buildClipId(index, segment = null) {
+    if (segment && Number.isInteger(Number(segment.clip_id))) {
+        return Number(segment.clip_id);
+    }
+
+    return index;
+}
+
+function decorateSegmentForEnglishAudio(segment, index) {
+    return {
+        ...segment,
+        clip_id: buildClipId(index, segment),
+        teluguText: segment?.teluguText || segment?.translation || "",
+        isModified: Boolean(segment?.isModified),
+        isUpdatingTranscript: Boolean(segment?.isUpdatingTranscript),
+        transcriptUpdateError: segment?.transcriptUpdateError || "",
+        englishAudioDirty: Boolean(segment?.englishAudioDirty),
+        englishAudioLoading: Boolean(segment?.englishAudioLoading),
+        englishAudioReady: Boolean(segment?.englishAudioReady),
+        englishAudioError: segment?.englishAudioError || "",
+        englishAudioUrl: segment?.englishAudioUrl || "",
+        englishAudioHash: segment?.englishAudioHash || "",
+        englishAudioRegenerating: Boolean(segment?.englishAudioRegenerating),
+        englishAudioBackgroundStatus: segment?.englishAudioBackgroundStatus || "",
+        audioStatus: segment?.audioStatus
+            || (segment?.englishAudioReady && !segment?.englishAudioDirty ? "ready" : "")
+            || (segment?.englishAudioLoading || ["queued", "generating"].includes(segment?.englishAudioBackgroundStatus) ? "generating" : "")
+            || (segment?.englishAudioDirty ? "dirty" : ""),
+    };
+}
+
+function decorateSegmentsForEnglishAudio() {
+    segmentsData = segmentsData.map((segment, index) => decorateSegmentForEnglishAudio(segment, index));
+}
+
+function hasModifiedTimelineClips() {
+    return segmentsData.some((segment) => segment?.isModified);
+}
+
+function hasUpdatingTimelineClips() {
+    return segmentsData.some((segment) => segment?.isUpdatingTranscript);
+}
+
+function updateTimelineTextButtonUi() {
+    return;
+}
+
+function clearModifiedClipTranscriptionTimer() {
+    if (modifiedClipTranscribeTimer !== null) {
+        window.clearTimeout(modifiedClipTranscribeTimer);
+        modifiedClipTranscribeTimer = null;
+    }
+}
+
+function scheduleModifiedClipTranscription() {
+    clearModifiedClipTranscriptionTimer();
+
+    if (!videoPath || !hasModifiedTimelineClips()) {
+        return;
+    }
+
+    modifiedClipTranscribeTimer = window.setTimeout(() => {
+        modifiedClipTranscribeTimer = null;
+        updateModifiedClipTexts({ trigger: "auto" });
+    }, AUTO_TRANSCRIBE_DELAY_MS);
+}
+
+function markClipsModified(indices) {
+    const normalizedIndices = [...new Set((indices || []).filter((index) => Number.isInteger(index) && index >= 0 && index < segmentsData.length))];
+    if (!normalizedIndices.length) {
+        return;
+    }
+
+    normalizedIndices.forEach((index) => {
+        console.log("Marked clip as modified:", index, segmentsData[index]?.start, segmentsData[index]?.end);
+        segmentsData[index] = decorateSegmentForEnglishAudio({
+            ...segmentsData[index],
+            isModified: true,
+            isUpdatingTranscript: false,
+            transcriptUpdateError: "",
+            transcriptUpdateRequestKey: "",
+        }, index);
+    });
+
+    updateTimelineTextButtonUi();
+    scheduleModifiedClipTranscription();
+    saveAppState();
+}
+
+async function updateModifiedClipTexts(options = {}) {
+    if (!videoPath) {
+        showError("Please upload and process a video first.");
+        return;
+    }
+
+    const targets = segmentsData
+        .map((segment, index) => ({ segment, index }))
+        .filter(({ segment }) => segment?.isModified && !segment?.isUpdatingTranscript)
+        .map(({ segment, index }) => ({
+            index,
+            clipId: buildClipId(index, segment),
+            start: Number(segment.start),
+            end: Number(segment.end),
+            requestKey: `${Date.now()}-${index}-${Number(segment.start).toFixed(3)}-${Number(segment.end).toFixed(3)}`,
+        }));
+
+    if (!targets.length) {
+        updateTimelineTextButtonUi();
+        return;
+    }
+
+    clearModifiedClipTranscriptionTimer();
+    targets.forEach(({ index, requestKey }) => {
+        segmentsData[index] = decorateSegmentForEnglishAudio({
+            ...segmentsData[index],
+            isUpdatingTranscript: true,
+            transcriptUpdateError: "",
+            transcriptUpdateRequestKey: requestKey,
+        }, index);
+    });
+    renderSegments();
+    updateTimelineTextButtonUi();
+
+    const results = await Promise.allSettled(targets.map(async ({ index, clipId, start, end, requestKey }) => {
+        console.log("Updating clip:", start, end, "clipId:", clipId);
+        const response = await fetch("/transcribe-segment", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                clip_id: clipId,
+                video_path: videoPath,
+                start_time: start,
+                end_time: end,
+            }),
+        });
+
+        const data = await response.json();
+        if (!response.ok || !data.ok) {
+            throw new Error(data.error || data.detail || "Unable to update transcript text");
+        }
+
+        const currentSegment = segmentsData[index];
+        const currentRequestKey = currentSegment?.transcriptUpdateRequestKey || "";
+        const timingChanged = roundToMillisecond(currentSegment?.start) !== roundToMillisecond(start)
+            || roundToMillisecond(currentSegment?.end) !== roundToMillisecond(end);
+        if (!currentSegment || currentRequestKey !== requestKey || timingChanged) {
+            return;
+        }
+
+        const nextText = cleanTranscriptText(data.text || "");
+        segmentsData[index] = decorateSegmentForEnglishAudio({
+            ...currentSegment,
+            text: nextText,
+            teluguText: "",
+            translation: "",
+            translationLoading: false,
+            translationSource: nextText,
+            isModified: false,
+            isUpdatingTranscript: false,
+            transcriptUpdateError: "",
+            transcriptUpdateRequestKey: "",
+        }, index);
+
+        markClipEnglishAudioDirty(index);
+        scheduleClipEnglishAudioGeneration(index);
+        if (showAllTelugu) {
+            scheduleSegmentTranslation(index, { immediate: true });
+        }
+    }));
+
+    let failures = 0;
+    results.forEach((result, resultIndex) => {
+        if (result.status === "fulfilled") {
+            return;
+        }
+
+        const { index, requestKey } = targets[resultIndex];
+        const currentSegment = segmentsData[index];
+        if (!currentSegment || (currentSegment.transcriptUpdateRequestKey || "") !== requestKey) {
+            return;
+        }
+
+        failures += 1;
+        segmentsData[index] = decorateSegmentForEnglishAudio({
+            ...currentSegment,
+            isUpdatingTranscript: false,
+            transcriptUpdateError: result.reason?.message || "Unable to update transcript text",
+            transcriptUpdateRequestKey: "",
+        }, index);
+    });
+
+    transcriptDirty = true;
+    renderSegments();
+    refreshUiState();
+    updateTimelineTextButtonUi();
+    saveAppState();
+
+    if (segmentsData.some((segment) => segment?.isModified && !segment?.isUpdatingTranscript && !segment?.transcriptUpdateError)) {
+        scheduleModifiedClipTranscription();
+    }
+
+    if (failures && options.trigger !== "auto") {
+        showError(`${failures} clip${failures === 1 ? "" : "s"} could not be updated. The others were updated successfully.`);
+    }
+}
+
+function getOriginalVideoSource() {
+    return previewUrl || localVideoUrl || "";
+}
+
+function clearEnglishVideoCache() {
+    englishVideoUrl = "";
+    englishVideoSignature = "";
+}
+
+function stopEnglishAudioStatusPolling() {
+    if (englishAudioStatusPoller) {
+        window.clearInterval(englishAudioStatusPoller);
+        englishAudioStatusPoller = null;
+    }
+}
+
+function applyEnglishAudioStatusPayload(data) {
+    const clips = Array.isArray(data?.clips) ? data.clips : [];
+    const clipStatusMap = new Map(clips.map((clip) => [Number(clip.clip_id), clip]));
+
+    segmentsData = segmentsData.map((segment, index) => {
+        const clipId = buildClipId(index, segment);
+        const status = clipStatusMap.get(clipId);
+        if (!status) {
+            return decorateSegmentForEnglishAudio(segment, index);
+        }
+
+        return decorateSegmentForEnglishAudio({
+            ...segment,
+            englishAudioBackgroundStatus: status.status || "",
+            englishAudioReady: status.status === "ready",
+            englishAudioDirty: status.status === "dirty" || status.status === "missing" ? segment.englishAudioDirty : false,
+            englishAudioError: status.status === "error"
+                ? getEnglishPlaybackErrorMessage(status.error, "Audio generation failed. Please try again.")
+                : "",
+            englishAudioUrl: status.status === "ready" ? (status.audio_url || segment.englishAudioUrl || "") : (segment.englishAudioUrl || ""),
+            englishAudioHash: status.text_hash || segment.englishAudioHash || "",
+            audioStatus: status.status === "ready"
+                ? "ready"
+                : (status.status === "queued" || status.status === "generating"
+                    ? "generating"
+                    : (status.status === "dirty" || status.status === "missing" ? "dirty" : (segment.audioStatus || ""))),
+        }, index);
+    });
+
+    englishAudioBackgroundSummary = data?.summary || {
+        total: segmentsData.length,
+        ready: 0,
+        generating: 0,
+        errors: 0
+    };
+}
+
+async function refreshEnglishAudioStatuses() {
+    if (!videoPath || !segmentsData.length) {
+        return;
+    }
+
+    const response = await fetch("/english-audio-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            video_path: videoPath,
+            voice_style: getSelectedVoiceStyle(),
+            segments: segmentsData.map((segment, index) => ({
+                clip_id: buildClipId(index, segment),
+                text: segment.text || "",
+                start: Number(segment.start),
+                end: Number(segment.end)
+            }))
+        })
+    });
+
+    const data = await response.json();
+    if (!response.ok || !data.ok) {
+        throw new Error(data.error || data.detail || "Unable to fetch English audio status");
+    }
+
+    applyEnglishAudioStatusPayload(data);
+    renderSegments();
+    refreshUiState();
+    saveAppState();
+}
+
+function startEnglishAudioStatusPolling() {
+    stopEnglishAudioStatusPolling();
+    if (!videoPath || !segmentsData.length) {
+        return;
+    }
+
+    refreshEnglishAudioStatuses().catch(() => {});
+    englishAudioStatusPoller = window.setInterval(async () => {
+        try {
+            await refreshEnglishAudioStatuses();
+            if (englishAudioBackgroundSummary.generating === 0) {
+                stopEnglishAudioStatusPolling();
+            }
+        } catch (error) {
+            console.warn("Unable to refresh English audio status", error);
+        }
+    }, 2500);
+}
+
+async function queueEnglishAudioGeneration({ clipIds = null, invalidate = false } = {}) {
+    if (!videoPath || !segmentsData.length) {
+        return;
+    }
+
+    if (Array.isArray(clipIds) && clipIds.length) {
+        const clipIdSet = new Set(clipIds.map((value) => Number(value)));
+        segmentsData = segmentsData.map((segment, index) => (
+            clipIdSet.has(buildClipId(index, segment))
+                ? decorateSegmentForEnglishAudio({
+                    ...segment,
+                    englishAudioBackgroundStatus: "queued",
+                    audioStatus: "generating",
+                    englishAudioError: "",
+                }, index)
+                : segment
+        ));
+        renderSegments();
+    }
+
+    const response = await fetch("/queue-english-audio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            video_path: videoPath,
+            voice_style: getSelectedVoiceStyle(),
+            clip_ids: clipIds,
+            invalidate,
+            segments: segmentsData.map((segment, index) => ({
+                clip_id: buildClipId(index, segment),
+                text: segment.text || "",
+                start: Number(segment.start),
+                end: Number(segment.end)
+            }))
+        })
+    });
+
+    const data = await response.json();
+    if (!response.ok || !data.ok) {
+        throw new Error(data.error || data.detail || "Unable to queue English audio generation");
+    }
+
+    startEnglishAudioStatusPolling();
+}
+
+function setClipAudioStatus(index, status) {
+    if (!segmentsData[index]) {
+        return;
+    }
+
+    const statusMap = {
+        ready: {
+            englishAudioDirty: false,
+            englishAudioReady: true,
+            englishAudioLoading: false,
+            englishAudioBackgroundStatus: "ready",
+        },
+        generating: {
+            englishAudioDirty: false,
+            englishAudioReady: false,
+            englishAudioLoading: false,
+            englishAudioBackgroundStatus: "queued",
+        },
+        dirty: {
+            englishAudioDirty: true,
+            englishAudioReady: false,
+            englishAudioLoading: false,
+            englishAudioBackgroundStatus: "dirty",
+        },
+    };
+
+    segmentsData[index] = decorateSegmentForEnglishAudio({
+        ...segmentsData[index],
+        ...(statusMap[status] || {}),
+        audioStatus: status,
+    }, index);
+}
+
+function cancelClipEnglishAudioGeneration(index) {
+    const existingTimer = englishAudioQueueTimers.get(index);
+    if (existingTimer) {
+        window.clearTimeout(existingTimer);
+        englishAudioQueueTimers.delete(index);
+    }
+}
+
+function scheduleClipEnglishAudioGeneration(index, options = {}) {
+    const { delayMs = 5000 } = options;
+    cancelClipEnglishAudioGeneration(index);
+
+    if (!segmentsData[index]) {
+        return;
+    }
+
+    setClipAudioStatus(index, "dirty");
+
+    englishAudioQueueTimers.set(index, window.setTimeout(async () => {
+        englishAudioQueueTimers.delete(index);
+        try {
+            setClipAudioStatus(index, "generating");
+            renderSegments();
+            await queueEnglishAudioGeneration({
+                clipIds: [buildClipId(index, segmentsData[index])],
+                invalidate: true
+            });
+        } catch (error) {
+            console.warn("Unable to queue clip English audio generation", error);
+            if (segmentsData[index]) {
+                segmentsData[index] = decorateSegmentForEnglishAudio({
+                    ...segmentsData[index],
+                    englishAudioError: getEnglishPlaybackErrorMessage(error.message, "Audio generation failed. Please try again."),
+                    englishAudioBackgroundStatus: "error",
+                    audioStatus: "dirty",
+                }, index);
+                renderSegments();
+            }
+        }
+    }, delayMs));
+}
+
+function getEnglishPlaybackErrorMessage(rawMessage, fallbackMessage = "Audio generation failed. Please try again.") {
+    const message = String(rawMessage || "").trim();
+    if (!message || message.toLowerCase() === "not found") {
+        return fallbackMessage;
+    }
+
+    if (message.startsWith("Missing audio for clip")) {
+        return message;
+    }
+
+    if (message.includes("English clip audio not found")) {
+        return fallbackMessage;
+    }
+
+    return message;
+}
+
+function markClipEnglishAudioDirty(index) {
+    if (!segmentsData[index]) {
+        return;
+    }
+
+    segmentsData[index] = decorateSegmentForEnglishAudio({
+        ...segmentsData[index],
+        englishAudioDirty: true,
+        englishAudioReady: false,
+        englishAudioLoading: false,
+        englishAudioRegenerating: Boolean(segmentsData[index].englishAudioUrl),
+        englishAudioError: "",
+        englishAudioUrl: "",
+        englishAudioHash: "",
+        englishAudioBackgroundStatus: "dirty",
+        audioStatus: "dirty",
+    }, index);
+}
+
+function markAllEnglishAudioDirty() {
+    segmentsData = segmentsData.map((segment, index) => decorateSegmentForEnglishAudio({
+        ...segment,
+        englishAudioDirty: true,
+        englishAudioReady: false,
+        englishAudioLoading: false,
+        englishAudioRegenerating: Boolean(segment.englishAudioUrl),
+        englishAudioError: "",
+        englishAudioUrl: "",
+        englishAudioHash: "",
+        englishAudioBackgroundStatus: "dirty",
+        audioStatus: "dirty",
+    }, index));
+    clearEnglishVideoCache();
+}
+
+function getEnglishAudioStatus(segment) {
+    if (!segment) {
+        return { text: "", className: "english-audio-status" };
+    }
+
+    if (segment.englishAudioBackgroundStatus === "queued" || segment.englishAudioBackgroundStatus === "generating") {
+        return {
+            text: "Generating audio in background...",
+            className: "english-audio-status loading"
+        };
+    }
+
+    if (segment.englishAudioLoading) {
+        return {
+            text: segment.englishAudioRegenerating ? "Regenerating English audio..." : "Generating English audio...",
+            className: "english-audio-status loading"
+        };
+    }
+
+    if (segment.englishAudioError) {
+        return {
+            text: segment.englishAudioError,
+            className: "english-audio-status error"
+        };
+    }
+
+    if (segment.englishAudioDirty) {
+        return {
+            text: "Text changed. English audio will regenerate on next play.",
+            className: "english-audio-status dirty"
+        };
+    }
+
+    if (segment.englishAudioReady) {
+        return {
+            text: "",
+            className: "english-audio-status"
+        };
+    }
+
+    return {
+        text: "English audio not generated yet",
+        className: "english-audio-status"
+    };
+}
+
+function setEnglishClipButtonState(index, options = {}) {
+    const {
+        isPlaying = false,
+        isLoading = false
+    } = options;
+    const button = document.getElementById(`english-btn-${index}`);
+    if (!button) {
+        return;
+    }
+
+    button.classList.toggle("playing", isPlaying);
+    button.classList.toggle("loading", isLoading);
+    const segment = segmentsData[index];
+    const isReady = Boolean((segment?.audioStatus === "ready" || segment?.englishAudioReady) && !segment?.englishAudioDirty);
+    button.disabled = isLoading || !isReady;
+
+    if (isLoading) {
+        button.innerHTML = '<span class="audio-spinner" aria-hidden="true"></span> Generating...';
+        button.setAttribute("aria-label", `Generating English audio for clip ${index + 1}`);
+        return;
+    }
+
+    button.innerText = isPlaying ? "⏸ English" : "▶ English";
+    button.setAttribute("aria-label", isPlaying ? `Pause English clip ${index + 1}` : `Play English clip ${index + 1}`);
+    button.setAttribute("title", isPlaying ? `Pause English clip ${index + 1}` : `Play English clip ${index + 1}`);
+
+    if (isReady) {
+        button.removeAttribute("disabled");
+    }
+}
+
+function resetAllEnglishClipButtons() {
+    segmentsData.forEach((_, index) => {
+        setEnglishClipButtonState(index, {
+            isPlaying: activeEnglishClipIndex === index,
+            isLoading: Boolean(segmentsData[index]?.englishAudioLoading)
+        });
+    });
+}
+
+function stopEnglishClipPlayback(options = {}) {
+    const { resetMute = true } = options;
+
+    if (activeEnglishClipAudio) {
+        activeEnglishClipAudio.pause();
+        activeEnglishClipAudio.currentTime = 0;
+        activeEnglishClipAudio = null;
+    }
+
+    if (activeEnglishClipIndex !== null) {
+        setEnglishClipButtonState(activeEnglishClipIndex, {
+            isPlaying: false,
+            isLoading: Boolean(segmentsData[activeEnglishClipIndex]?.englishAudioLoading)
+        });
+    }
+
+    activeEnglishClipIndex = null;
+
+    if (resetMute && videoPlayer) {
+        setVideoOutputMuted(false);
+    }
+}
+
+function ensureOriginalPreviewSource() {
+    const originalSource = getOriginalVideoSource();
+    if (!originalSource) {
+        return;
+    }
+
+    if (videoPlayer.dataset.sourceMode !== "original") {
+        setPreviewSource(originalSource, { sourceMode: "original", muted: false });
+        return;
+    }
+
+    setVideoOutputMuted(false);
+}
+
+function clearTranslationTimers() {
+    translationTimers.forEach((timerId) => window.clearTimeout(timerId));
+    translationTimers.clear();
+}
+
+function getSegmentTranslationText(segment) {
+    if (!segment) {
+        return "";
+    }
+
+    if (segment.translationLoading) {
+        return "Updating translation...";
+    }
+
+    if (segment.teluguText) {
+        return segment.teluguText;
+    }
+
+    return "";
+}
+
+function getSegmentTranslationClass(segment) {
+    if (!segment || segment.translationLoading) {
+        return "translation-text loading";
+    }
+
+    if (!segment.teluguText) {
+        return "translation-text empty";
+    }
+
+    return "translation-text";
+}
+
+function getSegmentTranslationState(segment) {
+    if (!segment) {
+        return "empty";
+    }
+
+    if (segment.translationLoading) {
+        return "loading";
+    }
+
+    if (segment.teluguText) {
+        return "ready";
+    }
+
+    return "empty";
+}
+
+function updateSegmentTranslationUi(index) {
+    const segment = segmentsData[index];
+    const wrapper = document.getElementById(`translation-${index}`);
+    if (!segment || !wrapper) {
+        return;
+    }
+
+    wrapper.classList.toggle("show", showAllTelugu);
+    wrapper.classList.toggle("loading", getSegmentTranslationState(segment) === "loading");
+    wrapper.classList.toggle("ready", getSegmentTranslationState(segment) === "ready");
+    const textNode = wrapper.querySelector(".translation-text");
+    if (!textNode) {
+        return;
+    }
+
+    textNode.className = getSegmentTranslationClass(segment);
+    textNode.innerText = getSegmentTranslationText(segment);
+}
+
+function updateEnglishAudioStatusUi(index) {
+    const segment = segmentsData[index];
+    const statusNode = document.getElementById(`english-status-${index}`);
+    if (!segment || !statusNode) {
+        return;
+    }
+
+    const status = getEnglishAudioStatus(segment);
+    statusNode.className = status.className;
+    statusNode.innerText = status.text;
+    setEnglishClipButtonState(index, {
+        isPlaying: activeEnglishClipIndex === index && Boolean(activeEnglishClipAudio && !activeEnglishClipAudio.paused),
+        isLoading: Boolean(segment.englishAudioLoading)
+    });
+}
+
+async function translateEnglishToTelugu(text) {
+    const normalizedText = cleanTranscriptText(text);
+    if (!normalizedText) {
+        return "";
+    }
+
+    if (translationCache.has(normalizedText)) {
+        return translationCache.get(normalizedText);
+    }
+
+    const response = await fetch("/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            text: normalizedText,
+            target_lang: "te"
+        })
+    });
+
+    const data = await response.json();
+    const translatedText = cleanTranscriptText(data?.translated_text || "");
+    if (translatedText) {
+        translationCache.set(normalizedText, translatedText);
+    }
+    return translatedText;
+}
+
+function scheduleSegmentTranslation(index, options = {}) {
+    const { immediate = false } = options;
+    const segment = segmentsData[index];
+    if (!segment) {
+        return;
+    }
+
+    const timerId = translationTimers.get(index);
+    if (timerId) {
+        window.clearTimeout(timerId);
+    }
+
+    const delay = immediate ? 0 : 250;
+    translationTimers.set(index, window.setTimeout(() => {
+        translationTimers.delete(index);
+        requestSegmentTranslation(index);
+    }, delay));
+}
+
+async function requestSegmentTranslation(index) {
+    const segment = segmentsData[index];
+    if (!segment) {
+        return;
+    }
+
+    const sourceText = cleanTranscriptText(segment.text);
+    segment.translationSource = sourceText;
+
+    if (!sourceText) {
+        segment.teluguText = "";
+        segment.translationLoading = false;
+        updateSegmentTranslationUi(index);
+        saveAppState();
+        return;
+    }
+
+    segment.translationLoading = true;
+    updateSegmentTranslationUi(index);
+
+    try {
+        const teluguText = await translateEnglishToTelugu(sourceText);
+        if (!segmentsData[index] || cleanTranscriptText(segmentsData[index].text) !== sourceText) {
+            return;
+        }
+
+        segmentsData[index].teluguText = teluguText;
+        segmentsData[index].translationLoading = false;
+        updateSegmentTranslationUi(index);
+        saveAppState();
+    } catch (error) {
+        if (segmentsData[index]) {
+            segmentsData[index].translationLoading = false;
+            segmentsData[index].teluguText = "";
+        }
+        updateSegmentTranslationUi(index);
+        saveAppState();
+    }
+}
+
+function requestAllSegmentTranslations() {
+    segmentsData.forEach((_, index) => {
+        scheduleSegmentTranslation(index, { immediate: true });
+    });
+}
+
+function toggleTeluguTranslations() {
+    showAllTelugu = !showAllTelugu;
+
+    if (showAllTelugu) {
+        requestAllSegmentTranslations();
+    } else {
+        clearTranslationTimers();
+    }
+
+    renderSegments();
+    refreshUiState();
+    saveAppState();
+}
+
+function formatTimestampInputValue(totalSeconds) {
+    const safeValue = Math.max(0, Number(totalSeconds) || 0);
+    const minutes = Math.floor(safeValue / 60);
+    const seconds = Math.floor(safeValue % 60);
+    const milliseconds = Math.round((safeValue - Math.floor(safeValue)) * 1000);
+    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}.${String(milliseconds).padStart(3, "0")}`;
+}
+
+function parseTimestampInputValue(value) {
+    const raw = String(value || "").trim();
+    if (!raw) {
+        return NaN;
+    }
+
+    if (/^\d+(\.\d+)?$/.test(raw)) {
+        return Number(raw);
+    }
+
+    const parts = raw.split(":");
+    if (parts.length === 2) {
+        const minutes = Number(parts[0]);
+        const seconds = Number(parts[1]);
+        if (Number.isFinite(minutes) && Number.isFinite(seconds)) {
+            return (minutes * 60) + seconds;
+        }
+    }
+
+    if (parts.length === 3) {
+        const hours = Number(parts[0]);
+        const minutes = Number(parts[1]);
+        const seconds = Number(parts[2]);
+        if (Number.isFinite(hours) && Number.isFinite(minutes) && Number.isFinite(seconds)) {
+            return (hours * 3600) + (minutes * 60) + seconds;
+        }
+    }
+
+    return NaN;
+}
+
+function getClipTimestampDraft(index) {
+    return clipTimestampDrafts.get(index) || null;
+}
+
+function getClipTimestampValue(index, edge) {
+    const draft = getClipTimestampDraft(index);
+    if (draft && Number.isFinite(draft[edge])) {
+        return Number(draft[edge]);
+    }
+
+    return Number(segmentsData[index]?.[edge] || 0);
+}
+
+function getClipTimestampError(index) {
+    return getClipTimestampDraft(index)?.error || "";
+}
+
+function validateClipTimestampDraft(index, start, end) {
+    const frameStep = getTimelineSnapStep();
+    const duration = getTimelineDuration();
+    const previousClip = segmentsData[index - 1] || null;
+    const nextClip = segmentsData[index + 1] || null;
+
+    if (!Number.isFinite(start) || !Number.isFinite(end)) {
+        return "Enter a valid timestamp";
+    }
+    if (start < 0) {
+        return "Start cannot be negative";
+    }
+    if (end > duration) {
+        return "End exceeds video duration";
+    }
+    if (start >= end) {
+        return "Start must be before end";
+    }
+    if (previousClip && start <= Number(previousClip.start) + frameStep) {
+        return "Start is too close to the previous clip";
+    }
+    if (nextClip && end >= Number(nextClip.end) - frameStep) {
+        return "End is too close to the next clip";
+    }
+    return "";
+}
+
+function isClipTimestampDirty(index) {
+    const draft = getClipTimestampDraft(index);
+    if (!draft) {
+        return false;
+    }
+
+    const startChanged = Math.abs(Number(draft.start) - Number(segmentsData[index]?.start || 0)) >= 0.0005;
+    const endChanged = Math.abs(Number(draft.end) - Number(segmentsData[index]?.end || 0)) >= 0.0005;
+    return (startChanged || endChanged) && !draft.error;
+}
+
+function setClipTimestampDraft(index, patch) {
+    const currentDraft = getClipTimestampDraft(index) || {
+        start: Number(segmentsData[index]?.start || 0),
+        end: Number(segmentsData[index]?.end || 0),
+        error: "",
+    };
+    const nextDraft = {
+        ...currentDraft,
+        ...patch,
+    };
+    nextDraft.error = patch.error ?? validateClipTimestampDraft(index, Number(nextDraft.start), Number(nextDraft.end));
+    clipTimestampDrafts.set(index, nextDraft);
+}
+
+function clearClipTimestampDraft(index) {
+    clipTimestampDrafts.delete(index);
+}
+
+function handleClipTimestampInput(index, edge, value) {
+    const parsedValue = parseTimestampInputValue(value);
+    const existingStart = getClipTimestampValue(index, "start");
+    const existingEnd = getClipTimestampValue(index, "end");
+    setClipTimestampDraft(index, {
+        start: edge === "start" ? parsedValue : existingStart,
+        end: edge === "end" ? parsedValue : existingEnd,
+    });
+    renderSegments();
+}
+
+function stepClipTimestamp(event, index, edge, direction) {
+    event.preventDefault();
+    event.stopPropagation();
+    const step = getTimelineSnapStep() * direction;
+    const currentStart = getClipTimestampValue(index, "start");
+    const currentEnd = getClipTimestampValue(index, "end");
+    setClipTimestampDraft(index, {
+        start: edge === "start" ? normalizeTimelineTime(currentStart + step, { disableSnap: false }) : currentStart,
+        end: edge === "end" ? normalizeTimelineTime(currentEnd + step, { disableSnap: false }) : currentEnd,
+    });
+    renderSegments();
 }
 
 function rebuildSegmentTextFromWords(words, segment, fallbackText = "") {
@@ -2708,6 +5563,41 @@ function rebuildSegmentTextFromWords(words, segment, fallbackText = "") {
     return cleanTranscriptText(matchedWords.map((word) => word.text).join(" "));
 }
 
+function refreshSegmentTextFromBounds(index) {
+    const segment = segmentsData[index];
+    if (!segment) {
+        return;
+    }
+
+    const nextText = rebuildSegmentTextFromWords(transcriptWords, segment, segment.text || "");
+    segmentsData[index] = decorateSegmentForEnglishAudio({
+        ...segment,
+        text: nextText,
+        raw_text: nextText,
+        translationSource: nextText,
+        transcriptUpdateError: "",
+    }, index);
+}
+
+function refreshTimelineTextsForBoundary(index, edge) {
+    refreshSegmentTextFromBounds(index);
+
+    const adjacentIndex = edge === "end" ? index + 1 : index - 1;
+    if (adjacentIndex >= 0 && adjacentIndex < segmentsData.length) {
+        refreshSegmentTextFromBounds(adjacentIndex);
+    }
+}
+
+function formatSegmentConfidence(segment) {
+    const raw = Number(segment?.confidence);
+    if (!Number.isFinite(raw) || raw <= 0) {
+        return "";
+    }
+
+    const normalized = raw <= 1 ? raw * 100 : raw;
+    return `Conf ${Math.max(0, Math.min(99, Math.round(normalized)))}%`;
+}
+
 function rebuildAllSegmentTexts() {
     segmentsData = segmentsData.map((segment) => ({
         ...segment,
@@ -2723,7 +5613,7 @@ function getTimelineDuration() {
 }
 
 function getTimelineSnapStep() {
-    return 1 / 30;
+    return 1 / Math.max(Number(selectedVideoFps || 30), 1);
 }
 
 function getTimelineVisualWidth(duration = getTimelineDuration()) {
@@ -2760,6 +5650,7 @@ function renderTimelineRuler(duration) {
     ruler.style.width = `${getTimelineVisualWidth(duration)}px`;
     const markers = Math.min(5, Math.max(2, Math.ceil(duration / 10) + 1));
     ruler.innerHTML = "";
+    const fragment = document.createDocumentFragment();
 
     for (let index = 0; index < markers; index += 1) {
         const ratio = markers === 1 ? 0 : index / (markers - 1);
@@ -2767,8 +5658,10 @@ function renderTimelineRuler(duration) {
         label.className = "timeline-ruler-label";
         label.style.left = `${ratio * 100}%`;
         label.innerText = formatClockTime(ratio * duration);
-        ruler.appendChild(label);
+        fragment.appendChild(label);
     }
+
+    ruler.appendChild(fragment);
 }
 
 function renderTimelineGrid(track, duration) {
@@ -2776,6 +5669,7 @@ function renderTimelineGrid(track, duration) {
     grid.className = "timeline-grid";
     const step = getTimelineSnapStep();
     const totalLines = Math.floor(duration / step);
+    const fragment = document.createDocumentFragment();
 
     for (let index = 0; index <= totalLines; index += 1) {
         const line = document.createElement("span");
@@ -2784,9 +5678,10 @@ function renderTimelineGrid(track, duration) {
             line.classList.add("major");
         }
         line.style.left = `${(index * step / duration) * 100}%`;
-        grid.appendChild(line);
+        fragment.appendChild(line);
     }
 
+    grid.appendChild(fragment);
     track.appendChild(grid);
 }
 
@@ -2829,57 +5724,18 @@ function stopTimelinePlayheadLoop() {
     }
 }
 
-function renderTimeline() {
+function performTimelineRender() {
     const track = document.getElementById("timelineTrack");
     if (!track) {
         return;
     }
 
     const duration = getTimelineDuration();
+    const renderToken = ++timelineRenderToken;
     renderTimelineRuler(duration);
     track.innerHTML = "";
     track.style.width = `${getTimelineVisualWidth(duration)}px`;
     renderTimelineGrid(track, duration);
-
-    segmentsData.forEach((segment, index) => {
-        const block = document.createElement("div");
-        const start = Number(segment.start);
-        const end = Number(segment.end);
-        const left = (start / duration) * 100;
-        const width = Math.max(((end - start) / duration) * 100, 1.2);
-
-        block.className = "timeline-block";
-        if (activeSyncedClipIndex === index) {
-            block.classList.add("active");
-        }
-        if (timelineSelectedIndices.includes(index)) {
-            block.classList.add("selected");
-        }
-
-        block.style.left = `${left}%`;
-        block.style.width = `${width}%`;
-        block.dataset.index = String(index);
-        block.innerHTML = `
-            <span class="timeline-block-label">Clip ${index + 1}</span>
-            <span class="timeline-handle left" data-edge="start"></span>
-            <span class="timeline-handle right" data-edge="end"></span>
-        `;
-
-        block.addEventListener("click", (event) => {
-            if (event.target.closest(".timeline-handle")) {
-                return;
-            }
-
-            toggleTimelineSelection(index, event);
-            seekToClip(index, false);
-        });
-
-        block.querySelectorAll(".timeline-handle").forEach((handle) => {
-            handle.addEventListener("pointerdown", (event) => startTimelineDrag(event, index, handle.dataset.edge));
-        });
-
-        track.appendChild(block);
-    });
 
     updateTimelinePlayhead();
     updateTimelinePreview(
@@ -2887,13 +5743,81 @@ function renderTimeline() {
             ? "Drag clip edges to adjust timestamps. Adjacent clips stay continuous automatically."
             : "Timeline hidden"
     );
+
+    const chunkSize = 20;
+    let index = 0;
+
+    const appendChunk = () => {
+        if (renderToken !== timelineRenderToken) {
+            return;
+        }
+
+        const fragment = document.createDocumentFragment();
+        const endIndex = Math.min(index + chunkSize, segmentsData.length);
+
+        for (; index < endIndex; index += 1) {
+            const segment = segmentsData[index];
+            const currentIndex = index;
+            const block = document.createElement("div");
+            const start = Number(segment.start);
+            const nextSegment = segmentsData[currentIndex + 1];
+            const end = nextSegment ? Number(nextSegment.start) : Number(segment.end);
+            const left = (start / duration) * 100;
+            const width = Math.max(((end - start) / duration) * 100, 0);
+
+            block.className = "timeline-block";
+            block.classList.add(currentIndex % 2 === 0 ? "variant-a" : "variant-b");
+            if (activeSyncedClipIndex === currentIndex) {
+                block.classList.add("active");
+            }
+            if (timelineSelectedIndices.includes(currentIndex)) {
+                block.classList.add("selected");
+            }
+
+            block.style.left = `${left}%`;
+            block.style.width = `${width}%`;
+            block.dataset.index = String(currentIndex);
+            block.innerHTML = `
+                <span class="timeline-block-label">Clip ${currentIndex + 1}</span>
+                <span class="timeline-handle left" data-edge="start"></span>
+                <span class="timeline-handle right" data-edge="end"></span>
+            `;
+
+            block.addEventListener("click", (event) => {
+                if (event.target.closest(".timeline-handle")) {
+                    return;
+                }
+
+                toggleTimelineSelection(currentIndex, event);
+                seekToClip(currentIndex, true);
+            });
+
+            block.querySelectorAll(".timeline-handle").forEach((handle) => {
+                handle.addEventListener("pointerdown", (event) => startTimelineDrag(event, currentIndex, handle.dataset.edge));
+            });
+
+            fragment.appendChild(block);
+        }
+
+        track.appendChild(fragment);
+
+        if (index < segmentsData.length) {
+            window.requestAnimationFrame(appendChunk);
+        }
+    };
+
+    appendChunk();
+}
+
+function renderTimeline() {
+    requestTimelineRender();
 }
 
 function toggleTimelinePanel() {
     timelineVisible = !timelineVisible;
     refreshUiState();
     if (timelineVisible) {
-        renderTimeline();
+        requestTimelineRender(true);
     }
 }
 
@@ -2913,12 +5837,9 @@ function applyTimelineBoundary(index, edge, nextValue) {
         const boundedEnd = Math.min(Math.max(normalizedValue, Number(current.start) + minimumDuration), maxEnd);
         current.end = roundTimelineValue(boundedEnd);
         if (nextClip) {
-            nextClip.start = current.end;
+            nextClip.start = roundTimelineValue(current.end);
         }
-        current.text = rebuildSegmentTextFromWords(transcriptWords, current, current.text);
-        if (nextClip) {
-            nextClip.text = rebuildSegmentTextFromWords(transcriptWords, nextClip, nextClip.text);
-        }
+        refreshTimelineTextsForBoundary(index, edge);
         return;
     }
 
@@ -2927,10 +5848,96 @@ function applyTimelineBoundary(index, edge, nextValue) {
     const boundedStart = Math.max(Math.min(normalizedValue, Number(current.end) - minimumDuration), minStart);
     current.start = roundTimelineValue(boundedStart);
     if (previousClip) {
-        previousClip.end = current.start;
-        previousClip.text = rebuildSegmentTextFromWords(transcriptWords, previousClip, previousClip.text);
+        previousClip.end = roundTimelineValue(current.start);
     }
-    current.text = rebuildSegmentTextFromWords(transcriptWords, current, current.text);
+    refreshTimelineTextsForBoundary(index, edge);
+}
+
+async function submitClipTimestampUpdate(index) {
+    const segment = segmentsData[index];
+    const draft = getClipTimestampDraft(index);
+    if (!segment || !draft || draft.error || !isClipTimestampDirty(index)) {
+        return;
+    }
+
+    try {
+        const response = await fetch("/update-clip-timestamp", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                clip_id: buildClipId(index, segment),
+                start: Number(draft.start),
+                end: Number(draft.end),
+                fps: Number(selectedVideoFps || 30),
+                video_duration: Number(getTimelineDuration()),
+                segments: segmentsData.map((item, itemIndex) => ({
+                    clip_id: buildClipId(itemIndex, item),
+                    start: Number(item.start),
+                    end: Number(item.end),
+                    text: item.text || "",
+                })),
+                transcript_words: transcriptWords,
+            }),
+        });
+
+        const data = await response.json();
+        if (!response.ok || !data.ok) {
+            throw new Error(data.error || data.detail || "Unable to update clip timestamps");
+        }
+
+        const updatedMap = new Map((data.updated_clips || []).map((clip) => [Number(clip.clip_id), clip]));
+        segmentsData = segmentsData.map((item, itemIndex) => {
+            const updated = updatedMap.get(buildClipId(itemIndex, item));
+            if (!updated) {
+                return item;
+            }
+
+            const nextSegment = decorateSegmentForEnglishAudio({
+                ...item,
+                start: Number(updated.start),
+                end: Number(updated.end),
+                start_ms: Math.round(Number(updated.start) * 1000),
+                end_ms: Math.round(Number(updated.end) * 1000),
+                text: item.text || "",
+                translationSource: cleanTranscriptText(item.text || ""),
+                transcriptUpdateError: "",
+            }, itemIndex);
+            return nextSegment;
+        });
+
+        const modifiedIndices = [];
+        updatedMap.forEach((_, clipId) => {
+            const affectedIndex = segmentsData.findIndex((item, itemIndex) => buildClipId(itemIndex, item) === clipId);
+            if (affectedIndex >= 0) {
+                modifiedIndices.push(affectedIndex);
+                clearClipTimestampDraft(affectedIndex);
+                markClipEnglishAudioDirty(affectedIndex);
+                scheduleClipEnglishAudioGeneration(affectedIndex);
+                if (showAllTelugu) {
+                    scheduleSegmentTranslation(affectedIndex);
+                }
+            }
+        });
+        markClipsModified(modifiedIndices);
+
+        clearEnglishVideoCache();
+        transcriptDirty = true;
+        generatedSummary.segments = segmentsData.length;
+        renderSegments();
+        if (timelineVisible) {
+            requestTimelineRender(true);
+        }
+        refreshUiState();
+        saveAppState();
+    } catch (error) {
+        setClipTimestampDraft(index, {
+            start: Number(draft.start),
+            end: Number(draft.end),
+            error: error.message || "Unable to update clip timestamps",
+        });
+        renderSegments();
+        showError(error.message || "Unable to update clip timestamps");
+    }
 }
 
 function roundTimelineValue(value) {
@@ -2993,8 +6000,8 @@ function handleTimelineDrag(event) {
     timelineDragState.disableSnap = event.altKey;
     const nextTime = getTimelineTimeFromPointer(event);
     applyTimelineBoundary(timelineDragState.index, timelineDragState.edge, nextTime);
-    renderTimeline();
-    renderSegments();
+    requestTimelineRender();
+    scheduleWaveformClipSegmentsRender();
     syncActiveClipFromVideo(false);
     updateTimelinePreview(
         `Clip ${timelineDragState.index + 1}: ${formatSegmentRawRange(
@@ -3009,7 +6016,8 @@ function stopTimelineDrag() {
         return;
     }
 
-    const dragKind = timelineDragState.kind || "boundary";
+    const completedDragState = timelineDragState;
+    const dragKind = completedDragState.kind || "boundary";
     timelineDragState = null;
     window.removeEventListener("pointermove", handleTimelineDrag);
     window.removeEventListener("pointerup", stopTimelineDrag);
@@ -3018,9 +6026,15 @@ function stopTimelineDrag() {
         return;
     }
     renderSegments();
-    renderTimeline();
+    requestTimelineRender(true);
+    scheduleWaveformClipSegmentsRender({ immediate: true });
     transcriptDirty = true;
     generatedSummary.segments = segmentsData.length;
+    markAllEnglishAudioDirty();
+    markClipsModified([
+        completedDragState.index,
+        completedDragState.edge === "end" ? completedDragState.index + 1 : completedDragState.index - 1,
+    ]);
     refreshUiState();
     saveAppState();
 }
@@ -3036,7 +6050,7 @@ function toggleTimelineSelection(index, event) {
         timelineSelectedIndices = [index];
     }
 
-    renderTimeline();
+    requestTimelineRender();
     refreshUiState();
 }
 
@@ -3060,11 +6074,14 @@ function splitClipAtPlayhead() {
     leftClip.text = rebuildSegmentTextFromWords(transcriptWords, leftClip, target.text);
     rightClip.text = rebuildSegmentTextFromWords(transcriptWords, rightClip, target.text);
     segmentsData.splice(splitIndex, 1, leftClip, rightClip);
+    clipTimestampDrafts.clear();
+    decorateSegmentsForEnglishAudio();
     timelineSelectedIndices = [splitIndex, splitIndex + 1];
     transcriptDirty = true;
     generatedSummary.segments = segmentsData.length;
+    markAllEnglishAudioDirty();
     renderSegments();
-    renderTimeline();
+    requestTimelineRender(true);
     refreshUiState();
     saveAppState();
 }
@@ -3094,11 +6111,14 @@ function mergeSelectedTimelineClips() {
     };
     mergedClip.text = rebuildSegmentTextFromWords(transcriptWords, mergedClip, `${firstClip.text} ${secondClip.text}`);
     segmentsData.splice(firstIndex, 2, mergedClip);
+    clipTimestampDrafts.clear();
+    decorateSegmentsForEnglishAudio();
     timelineSelectedIndices = [firstIndex];
     transcriptDirty = true;
     generatedSummary.segments = segmentsData.length;
+    markAllEnglishAudioDirty();
     renderSegments();
-    renderTimeline();
+    requestTimelineRender(true);
     refreshUiState();
     saveAppState();
 }
@@ -3121,11 +6141,14 @@ function addTimelineSegment() {
         text: rebuildSegmentTextFromWords(transcriptWords, { start, end }, "")
     };
     segmentsData.push(newClip);
+    clipTimestampDrafts.clear();
+    decorateSegmentsForEnglishAudio();
     timelineSelectedIndices = [segmentsData.length - 1];
     transcriptDirty = true;
     generatedSummary.segments = segmentsData.length;
+    markAllEnglishAudioDirty();
     renderSegments();
-    renderTimeline();
+    requestTimelineRender(true);
     refreshUiState();
     saveAppState();
 }
@@ -3133,7 +6156,7 @@ function addTimelineSegment() {
 function setTimelineZoom(level) {
     timelineZoomLevel = level;
     refreshUiState();
-    renderTimeline();
+    requestTimelineRender();
 }
 
 function handleTimelineTrackClick(event) {
@@ -3154,6 +6177,12 @@ function handleTimelineTrackClick(event) {
 }
 
 function handleEditorKeyboardShortcuts(event) {
+    if (event.code === "Escape" && transcriptPanelCollapsed) {
+        event.preventDefault();
+        toggleTranscriptPanelCollapsed(false);
+        return;
+    }
+
     const target = event.target;
     const isTypingTarget = target instanceof HTMLElement
         && (target.closest("textarea, input") || target.isContentEditable);
@@ -3193,6 +6222,7 @@ function commitTranscriptState() {
 
 function restoreCommittedTranscriptState() {
     segmentsData = cloneSegments(committedSegmentsData);
+    clipTimestampDrafts.clear();
     transcriptDirty = false;
     renderSegments();
     refreshUiState();
@@ -3285,6 +6315,115 @@ function formatDuration(seconds) {
         return `${String(minutes).padStart(2, "0")}:${String(remainingSeconds).padStart(2, "0")} min`;
     }
     return `00:${String(remainingSeconds).padStart(2, "0")} sec`;
+}
+
+function formatTimingClock(timestamp) {
+    if (!timestamp) {
+        return "Not available";
+    }
+
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+    });
+}
+
+function formatTimingDuration(milliseconds) {
+    const safeMs = Math.max(0, Number(milliseconds || 0));
+    const totalSeconds = Math.floor(safeMs / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    if (hours > 0) {
+        return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+    }
+
+    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function stopActiveEditTracking() {
+    if (sessionTiming.activeEditStartedAt) {
+        sessionTiming.activeEditMs += Math.max(0, Date.now() - sessionTiming.activeEditStartedAt);
+        sessionTiming.activeEditStartedAt = null;
+    }
+
+    if (sessionTiming.idleTimeoutId) {
+        window.clearTimeout(sessionTiming.idleTimeoutId);
+        sessionTiming.idleTimeoutId = null;
+    }
+}
+
+function scheduleEditIdleCutoff() {
+    if (sessionTiming.idleTimeoutId) {
+        window.clearTimeout(sessionTiming.idleTimeoutId);
+    }
+
+    sessionTiming.idleTimeoutId = window.setTimeout(() => {
+        stopActiveEditTracking();
+        renderTimingSummary();
+        saveAppState();
+    }, EDIT_ACTIVITY_IDLE_MS);
+}
+
+function markSessionStarted() {
+    if (!sessionTiming.startedAt) {
+        sessionTiming.startedAt = Date.now();
+    }
+    renderTimingSummary();
+    saveAppState();
+}
+
+function trackActiveEditActivity(force = false) {
+    if (!sessionTiming.startedAt || currentStep !== 2) {
+        return;
+    }
+
+    if (force || !sessionTiming.activeEditStartedAt) {
+        sessionTiming.activeEditStartedAt = Date.now();
+    }
+
+    scheduleEditIdleCutoff();
+    renderTimingSummary();
+    saveAppState();
+}
+
+function getCurrentActiveEditMs() {
+    return sessionTiming.activeEditMs + (
+        sessionTiming.activeEditStartedAt
+            ? Math.max(0, Date.now() - sessionTiming.activeEditStartedAt)
+            : 0
+    );
+}
+
+function renderTimingSummary() {
+    const startedEl = document.getElementById("timingStartedAt");
+    const completedEl = document.getElementById("timingCompletedAt");
+    const totalEl = document.getElementById("timingTotalElapsed");
+    const uploadEl = document.getElementById("timingUploadElapsed");
+    const editEl = document.getElementById("timingEditElapsed");
+    const downloadEl = document.getElementById("timingDownloadElapsed");
+
+    if (!startedEl || !completedEl || !totalEl || !uploadEl || !editEl || !downloadEl) {
+        return;
+    }
+
+    const now = Date.now();
+    const startedAt = sessionTiming.startedAt;
+    const completedAt = sessionTiming.completedAt;
+    const processedAt = sessionTiming.processedAt;
+    const downloadStartedAt = sessionTiming.downloadStartedAt;
+
+    startedEl.textContent = startedAt ? formatTimingClock(startedAt) : "Not started";
+    completedEl.textContent = completedAt ? formatTimingClock(completedAt) : "Not completed";
+    totalEl.textContent = startedAt ? formatTimingDuration((completedAt || now) - startedAt) : "00:00";
+    uploadEl.textContent = startedAt && processedAt ? formatTimingDuration(processedAt - startedAt) : "00:00";
+    editEl.textContent = formatTimingDuration(getCurrentActiveEditMs());
+    downloadEl.textContent = downloadStartedAt
+        ? formatTimingDuration((completedAt || now) - downloadStartedAt)
+        : "00:00";
 }
 
 function getProcessingHistory() {
@@ -3693,6 +6832,8 @@ function refreshUiState() {
     document.getElementById("continueToStep3Btn").disabled = !hasProcessed;
     document.getElementById("timelineToggleBtn").disabled = !hasProcessed;
     document.getElementById("playVideoBtn").disabled = !hasProcessed;
+    document.getElementById("playEnglishVideoBtn").disabled = !hasProcessed || !segmentsData.length;
+    document.getElementById("translateToggleBtn").disabled = !hasProcessed || !segmentsData.length;
     document.getElementById("downloadBtn").disabled = !hasGenerated;
     document.getElementById("driveBtn").disabled = !hasGenerated || !driveUploadConfigured;
     document.getElementById("editFlowBtn").disabled = !selectedFile && !videoPath;
@@ -3709,6 +6850,7 @@ function refreshUiState() {
     document.getElementById("timelineZoom1Btn").classList.toggle("active", timelineZoomLevel === 1);
     document.getElementById("timelineZoom2Btn").classList.toggle("active", timelineZoomLevel === 2);
     document.getElementById("timelineZoom5Btn").classList.toggle("active", timelineZoomLevel === 5);
+    document.getElementById("translateToggleBtn").classList.toggle("active", showAllTelugu);
 
     const playPauseBtn = document.getElementById("playPauseBtn");
     if (playPauseBtn) {
@@ -3718,7 +6860,11 @@ function refreshUiState() {
     document.getElementById("processStatus").innerText = hasGenerated
         ? "Clips generated"
         : hasProcessed
-            ? "Transcript ready"
+            ? (
+                englishAudioBackgroundSummary.generating > 0
+                    ? `Generating audio in background... ${englishAudioBackgroundSummary.ready}/${englishAudioBackgroundSummary.total} ready`
+                    : "Transcript ready"
+            )
             : (selectedFile || videoPath)
                 ? "Processing in progress"
                 : "Waiting for video";
@@ -3738,8 +6884,9 @@ function refreshUiState() {
     updateSegmentCount();
     updateDriveAvailabilityUi();
     syncPlayPauseLabel();
+    renderTimingSummary();
     if (timelineVisible && hasProcessed) {
-        renderTimeline();
+        requestTimelineRender();
     }
 }
 
@@ -3750,7 +6897,7 @@ async function processVideo(mode = "edit") {
     }
 
     clearError();
-    showLoading("Processing video...", "Uploading the file and generating timestamped transcript segments.", {
+    showLoading("Processing video...", "Uploading the file, aligning words, and preparing timestamped transcript clips.", {
         totalSteps: 4,
         initialStep: 1,
         initialLabel: "Uploading source video",
@@ -3766,24 +6913,43 @@ async function processVideo(mode = "edit") {
         formData.append("mode", mode);
 
         updateLoadingStatus(2, "Extracting audio", 34, "Audio extraction started");
-        const response = await fetch("/process", {
+        const processRequest = fetch("/process", {
             method: "POST",
             body: formData
         });
+        updateLoadingStatus(3, "Transcribing and aligning", 58, "Backend is generating subtitles and timings...");
+        const response = await processRequest;
 
         if (!response.ok) {
-            throw new Error("Unable to process the video.");
+            let message = "Unable to process the video.";
+            try {
+                const errorData = await response.json();
+                message = errorData.detail || errorData.error || errorData.message || message;
+            } catch (parseError) {
+                console.warn("Unable to parse process error payload", parseError);
+            }
+            throw new Error(message);
         }
 
         updateLoadingStatus(3, "Generating transcript", 72, "Transcription in progress");
         const data = await response.json();
         segmentsData = data.segments || [];
+        decorateSegmentsForEnglishAudio();
+        clipTimestampDrafts.clear();
         transcriptWords = data.transcript_words || [];
+        selectedVideoFps = Number(data.video_fps || selectedVideoFps || 30);
         videoPath = data.video_path || "";
         previewUrl = data.preview_url || "";
+        clearEnglishVideoCache();
         selectedWorkflowMode = data.mode || mode;
         hasProcessed = true;
         hasGenerated = false;
+        englishAudioBackgroundSummary = {
+            total: segmentsData.length,
+            ready: 0,
+            generating: segmentsData.length,
+            errors: 0
+        };
         generatedSummary = {
             clips: 0,
             textFiles: 0,
@@ -3795,8 +6961,22 @@ async function processVideo(mode = "edit") {
         updateLoadingStatus(4, "Preparing editor", 94, `Transcript completed with ${segmentsData.length} segments`);
         setPreviewSource(previewUrl);
         renderSegments();
+        if (showAllTelugu) {
+            requestAllSegmentTranslations();
+        }
+        startEnglishAudioStatusPolling();
+        if (getSelectedVoiceStyle() !== "tutorial") {
+            queueEnglishAudioGeneration({ invalidate: false }).catch((error) => {
+                console.warn("Unable to queue English audio generation", error);
+            });
+        }
+        sessionTiming.processedAt = Date.now();
         refreshUiState();
+        renderTimingSummary();
         saveAppState();
+        if (data.warning) {
+            showError(data.warning);
+        }
         await completeLoading("Processing completed", `Processing completed in ${document.getElementById("loadingElapsed").innerText}`);
     } catch (error) {
         showLoadingError(error.message || "Something went wrong while processing the video.");
@@ -3933,6 +7113,9 @@ async function saveAndContinue() {
         return;
     }
 
+    trackActiveEditActivity(true);
+    stopActiveEditTracking();
+    renderTimingSummary();
     goToStep(3);
 }
 
@@ -3943,6 +7126,14 @@ async function downloadFiles() {
     }
 
     clearError();
+    if (!sessionTiming.startedAt) {
+        markSessionStarted();
+    }
+    stopActiveEditTracking();
+    sessionTiming.downloadStartedAt = Date.now();
+    sessionTiming.completedAt = null;
+    renderTimingSummary();
+    saveAppState();
 
     try {
         const response = await fetch(`/download?video_path=${encodeURIComponent(videoPath)}`);
@@ -3960,6 +7151,9 @@ async function downloadFiles() {
         anchor.click();
         anchor.remove();
         window.URL.revokeObjectURL(url);
+        sessionTiming.completedAt = Date.now();
+        renderTimingSummary();
+        saveAppState();
 
         if (window.confirm("Download complete. Do you want to start over?")) {
             clearPersistedState();
@@ -4120,6 +7314,7 @@ function renderSegments() {
             </div>
         `;
         updateSegmentCount();
+        updateTimelineTextButtonUi();
         return;
     }
 
@@ -4127,61 +7322,135 @@ function renderSegments() {
 
     segmentsData.forEach((segment, index) => {
         const primaryTime = formatSegmentClockRange(segment.start, segment.end);
-        const rawTime = formatSegmentRawRange(segment.start, segment.end);
-        const showRawTime = expandedTimestampSegments.has(index);
+        const translationClass = getSegmentTranslationClass(segment);
+        const translationText = getSegmentTranslationText(segment);
+        const translationState = getSegmentTranslationState(segment);
+        const statusMeta = getClipStatusMeta(segment);
         const card = document.createElement("div");
-        card.className = "segment-card";
+        card.className = `segment-card clip-card${segment.isModified ? " modified" : ""}${activeSyncedClipIndex === index ? " active" : ""}`;
         card.id = `clip-${index}`;
         card.setAttribute("data-clip-id", String(index));
         card.dataset.index = String(index);
         card.dataset.start = String(segment.start);
         card.dataset.end = String(segment.end);
         card.innerHTML = `
-            <div class="segment-top">
+            <div class="segment-top clip-header">
                 <div class="segment-meta">
                     <div class="segment-heading">
                         <span class="segment-label">Clip ${index + 1}</span>
                     </div>
                 </div>
+                <div class="segment-time-primary">${primaryTime}</div>
                 <div class="segment-header-right">
-                    <button class="clip-btn" id="btn-${index}" onclick="toggleSegmentPlayback(${index}, ${segment.start}, ${segment.end})" aria-label="Play clip ${index + 1}" title="Play clip ${index + 1}">▶</button>
-                    <div class="segment-time-primary">${primaryTime}</div>
-                    <button
-                        class="timestamp-toggle"
-                        type="button"
-                        aria-label="Toggle raw timestamp for clip ${index + 1}"
-                        aria-expanded="${showRawTime ? "true" : "false"}"
-                        onclick="toggleTimestampDetails(${index})"
-                        title="Show precise timestamps"
-                    >⋯</button>
+                    <div class="sync-status ${statusMeta.className}">${statusMeta.text}</div>
                 </div>
             </div>
-            <textarea oninput="updateText(${index}, this.value)" onchange="updateText(${index}, this.value)" spellcheck="true">${segment.text || ""}</textarea>
-            <div class="segment-raw-time${showRawTime ? " show" : ""}" id="timestamp-${index}">(${rawTime})</div>
+            <div class="editor-shell">
+                <div class="clip-text-row">
+                    <div class="clip-text">
+                        <textarea
+                            class="segment-editor"
+                            oninput="handleEditorInput(${index}, this)"
+                            spellcheck="true"
+                            placeholder="Edit your narration here..."
+                        >${segment.text || ""}</textarea>
+                    </div>
+                    <div class="clip-actions">
+                        <button class="clip-btn" id="btn-${index}" onclick="toggleSegmentPlayback(${index}, ${segment.start}, ${segment.end})" aria-label="Play Telugu clip ${index + 1}" title="Play Telugu clip ${index + 1}">▶ Telugu</button>
+                        <button class="english-clip-btn" id="english-btn-${index}" onclick="playEnglishClip(${index})" aria-label="Play English clip ${index + 1}" title="Play English clip ${index + 1}" disabled>▶ English</button>
+                    </div>
+                </div>
+            </div>
+            <div class="translation-block${showAllTelugu ? " show" : ""} ${translationState}" id="translation-${index}">
+                <span class="translation-label">తెలుగు అనువాదం</span>
+                <div class="${translationClass}">${translationText}</div>
+            </div>
         `;
         card.addEventListener("click", (event) => {
-            if (event.target.closest("textarea, button")) {
+            if (event.target.closest("textarea, button, input, label")) {
                 return;
             }
 
-            seekToClip(index, true);
+            onClipClick(index);
         });
         container.appendChild(card);
     });
 
     updateSegmentCount();
+    const translateToggleBtn = document.getElementById("translateToggleBtn");
+    if (translateToggleBtn) {
+        translateToggleBtn.classList.toggle("active", showAllTelugu);
+        translateToggleBtn.setAttribute("aria-pressed", showAllTelugu ? "true" : "false");
+        translateToggleBtn.title = showAllTelugu
+            ? "Hide Telugu translation for all clips"
+            : "Show Telugu translation for all clips";
+    }
+    if (showAllTelugu) {
+        segmentsData.forEach((segment, index) => {
+            const sourceText = cleanTranscriptText(segment.text);
+            if (!sourceText) {
+                return;
+            }
+            if (segment.translationSource !== sourceText || (!segment.teluguText && !segment.translationLoading)) {
+                scheduleSegmentTranslation(index, { immediate: true });
+            }
+        });
+    }
+    resetAllEnglishClipButtons();
     updateActiveClipUi(activeSyncedClipIndex, { shouldScroll: false });
     if (timelineVisible) {
-        renderTimeline();
+        requestTimelineRender();
     }
+    updateTimelineTextButtonUi();
+    resizeAllEditors();
+}
+
+function autoResizeEditor(textarea) {
+    if (!textarea) {
+        return;
+    }
+
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.max(textarea.scrollHeight, 52)}px`;
+}
+
+function resizeAllEditors() {
+    document.querySelectorAll(".segment-editor").forEach((textarea) => {
+        autoResizeEditor(textarea);
+    });
+}
+
+function handleEditorInput(index, textarea) {
+    autoResizeEditor(textarea);
+    updateText(index, textarea.value);
 }
 
 function updateText(index, value) {
+    lastTranscriptEditAt = Date.now();
     segmentsData[index].text = value;
+    segmentsData[index].teluguText = "";
+    segmentsData[index].translationLoading = false;
+    segmentsData[index].translationSource = cleanTranscriptText(value);
+    markClipEnglishAudioDirty(index);
+    clearEnglishVideoCache();
     transcriptDirty = true;
     generatedSummary.segments = segmentsData.length;
+    scheduleClipEnglishAudioGeneration(index);
+    if (showAllTelugu) {
+        scheduleSegmentTranslation(index);
+        updateSegmentTranslationUi(index);
+    }
+    updateEnglishAudioStatusUi(index);
     refreshUiState();
     saveAppState();
+}
+
+async function waitForRecentEditsToSettle(delayMs = 2000) {
+    const elapsed = Date.now() - lastTranscriptEditAt;
+    const remaining = delayMs - elapsed;
+    if (remaining > 0) {
+        await new Promise((resolve) => window.setTimeout(resolve, remaining));
+    }
 }
 
 function updateSegmentCount() {
@@ -4193,15 +7462,11 @@ function updateSegmentCount() {
 function formatClockTime(totalSeconds) {
     const safeSeconds = Math.max(0, Number(totalSeconds) || 0);
     const wholeSeconds = Math.floor(safeSeconds);
-    const hours = Math.floor(wholeSeconds / 3600);
-    const minutes = Math.floor((wholeSeconds % 3600) / 60);
+    const minutes = Math.floor(wholeSeconds / 60);
     const seconds = wholeSeconds % 60;
+    const milliseconds = Math.floor((safeSeconds % 1) * 1000);
 
-    if (hours > 0) {
-        return [hours, minutes, seconds].map((value) => String(value).padStart(2, "0")).join(":");
-    }
-
-    return [minutes, seconds].map((value) => String(value).padStart(2, "0")).join(":");
+    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}:${String(milliseconds).padStart(3, "0")}`;
 }
 
 function formatSegmentClockRange(start, end) {
@@ -4210,6 +7475,556 @@ function formatSegmentClockRange(start, end) {
 
 function formatSegmentRawRange(start, end) {
     return `${Number(start).toFixed(2)} → ${Number(end).toFixed(2)}`;
+}
+
+function formatVideoTimestamp(totalSeconds) {
+    return formatClockTime(totalSeconds);
+}
+
+function formatDetailedTimestamp(totalSeconds) {
+    return formatClockTime(totalSeconds);
+}
+
+function getClipStatusMeta(segment) {
+    if (segment.isUpdatingTranscript) {
+        return {
+            text: "⏳ Updating",
+            className: "active",
+        };
+    }
+
+    if (segment.transcriptUpdateError) {
+        return {
+            text: `⚠ ${segment.transcriptUpdateError}`,
+            className: "",
+        };
+    }
+
+    if (segment.isModified) {
+        return {
+            text: "⚠ Modified",
+            className: "active",
+        };
+    }
+
+    return {
+        text: "✔ Synced",
+        className: "",
+    };
+}
+
+function updateCustomVideoPlayerUi() {
+    const timeChip = document.getElementById("timeChip");
+    const totalTimeChip = document.getElementById("totalTimeChip");
+    const playButton = document.getElementById("playBtn");
+    const currentTime = Math.max(0, Number(videoPlayer?.currentTime || 0));
+    const totalTime = Math.max(0, Number(videoPlayer?.duration || getTimelineDuration() || 0));
+    const formattedCurrent = formatVideoTimestamp(currentTime);
+    const formattedTotal = formatVideoTimestamp(totalTime);
+
+    if (timeChip) {
+        timeChip.textContent = formattedCurrent;
+    }
+    if (totalTimeChip) {
+        totalTimeChip.textContent = formattedTotal;
+    }
+    if (playButton) {
+        playButton.textContent = videoPlayer && !videoPlayer.paused ? "❚❚" : "▶";
+    }
+
+    if (waveform && Number(videoPlayer?.duration || 0) > 0) {
+        waveform.seekTo(Math.min(Math.max(currentTime / Number(videoPlayer.duration), 0), 1));
+    }
+    syncWaveformActiveClipState();
+    if (videoPlayer && !videoPlayer.paused) {
+        keepWaveformTimeInView(currentTime, { center: true });
+    }
+}
+
+function handleCustomPlayerLoadedMetadata() {
+    initializeWaveform();
+    updateCustomVideoPlayerUi();
+}
+
+function toggleInlineVideoPlayback(event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+
+    if (!videoPlayer) {
+        return;
+    }
+
+    if (!videoPlayer.paused) {
+        videoPlayer.pause();
+        return;
+    }
+
+    clearError();
+    playFromCurrentTime();
+}
+
+function seekVideoBy(offsetSeconds) {
+    if (!videoPlayer) {
+        return;
+    }
+
+    const duration = Number(videoPlayer.duration || getTimelineDuration());
+    const nextTime = Math.min(Math.max(Number(videoPlayer.currentTime || 0) + offsetSeconds, 0), duration || 0);
+    videoPlayer.currentTime = nextTime;
+    updateCustomVideoPlayerUi();
+}
+
+function roundToMillisecond(time) {
+    return Math.round(Number(time || 0) * 1000) / 1000;
+}
+
+function getWaveformSnapStep() {
+    const frameStep = 1 / Math.max(Number(selectedVideoFps || 30), 1);
+    return Math.min(frameStep, 0.001);
+}
+
+function snapToGrid(time) {
+    const snapStep = getWaveformSnapStep();
+    return Math.round(time / snapStep) * snapStep;
+}
+
+function getCustomPlayerTimeFromPointer(event) {
+    const container = document.getElementById("waveform-container");
+    const content = document.getElementById("waveformContent");
+    if (!container) {
+        return 0;
+    }
+
+    const rect = container.getBoundingClientRect();
+    const localX = (event.clientX - rect.left) + container.scrollLeft;
+    const contentWidth = Math.max(Number(content?.scrollWidth || content?.clientWidth || rect.width), 1);
+    const ratio = Math.min(Math.max(localX / contentWidth, 0), 1);
+    const duration = Number(videoPlayer?.duration || getTimelineDuration() || 0);
+    return ratio * duration;
+}
+
+function snapToPeak(time) {
+    const duration = Number(videoPlayer?.duration || 0);
+    if (!duration || !waveformPeaks.length) {
+        return time;
+    }
+
+    const targetIndex = Math.floor((time / duration) * waveformPeaks.length);
+    return (Math.min(Math.max(targetIndex, 0), waveformPeaks.length - 1) / Math.max(waveformPeaks.length - 1, 1)) * duration;
+}
+
+function getSnappedTime(time) {
+    const exactTime = roundToMillisecond(time);
+    const peakTime = roundToMillisecond(snapToNearestWaveformPeak(time));
+    const peakThreshold = Math.max(0.006, Math.min(Number(selectedVideoDurationSeconds || videoPlayer?.duration || 0) / 2000, 0.02));
+
+    if (Math.abs(time - peakTime) <= peakThreshold) {
+        return peakTime;
+    }
+
+    return roundToMillisecond(snapToGrid(exactTime));
+}
+
+function snapToNearestWaveformPeak(targetTime) {
+    const duration = Number(videoPlayer?.duration || 0);
+    if (!duration || !waveformPeaks.length) {
+        return targetTime;
+    }
+
+    const targetIndex = Math.round((targetTime / duration) * (waveformPeaks.length - 1));
+    let bestIndex = targetIndex;
+    let bestValue = -1;
+
+    for (let index = Math.max(0, targetIndex - 3); index <= Math.min(waveformPeaks.length - 1, targetIndex + 3); index += 1) {
+        const amplitude = Math.abs(Number(waveformPeaks[index] || 0));
+        if (amplitude > bestValue) {
+            bestValue = amplitude;
+            bestIndex = index;
+        }
+    }
+
+    return (bestIndex / Math.max(waveformPeaks.length - 1, 1)) * duration;
+}
+
+function startCustomPlayerDrag(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    stopTimelineEditorPlayback({ keepSelection: true });
+    customPlayerDragging = true;
+    window.addEventListener("pointermove", handleCustomPlayerDrag);
+    window.addEventListener("pointerup", stopCustomPlayerDrag);
+    handleCustomPlayerDrag(event);
+}
+
+function handleCustomPlayerDrag(event) {
+    if (!customPlayerDragging || !videoPlayer) {
+        return;
+    }
+
+    const rawTime = getCustomPlayerTimeFromPointer(event);
+    const snappedTime = getSnappedTime(rawTime);
+    videoPlayer.currentTime = Math.min(Math.max(snappedTime, 0), Number(videoPlayer.duration || rawTime));
+    syncActiveClipFromVideo(false);
+    updateCustomVideoPlayerUi();
+}
+
+function stopCustomPlayerDrag() {
+    customPlayerDragging = false;
+    window.removeEventListener("pointermove", handleCustomPlayerDrag);
+    window.removeEventListener("pointerup", stopCustomPlayerDrag);
+}
+
+function handleWaveformClickSeek(event) {
+    if (customPlayerDragging || waveformPanDragging || suppressWaveformClickSeek || !videoPlayer) {
+        return;
+    }
+
+    const rawTime = getCustomPlayerTimeFromPointer(event);
+    const snappedTime = getSnappedTime(rawTime);
+    const targetTime = Math.min(Math.max(snappedTime, 0), Number(videoPlayer.duration || rawTime));
+    const clipIndex = getActiveClipIndex(targetTime);
+
+    if (clipIndex !== null) {
+        clearError();
+        startClipPlayback(clipIndex, {
+            startTime: targetTime,
+            shouldScroll: false,
+        });
+        return;
+    }
+
+    clearActiveClipPlayback();
+    videoPlayer.currentTime = targetTime;
+    setVideoOutputMuted(false);
+    videoPlayer.play().catch((error) => {
+        console.warn("Unable to start playback from waveform", error);
+    });
+}
+
+function getWaveformClipTint(index, isActive = false) {
+    if (isActive) {
+        return index % 2 === 0 ? "#D2EAFD" : "#D7EFD9";
+    }
+    return index % 2 === 0 ? "#E3F2FD" : "#E8F5E9";
+}
+
+function getWaveformGridSteps(duration, containerWidth) {
+    const pixelsPerSecond = duration > 0 ? containerWidth / duration : 0;
+    let majorStep = 1;
+
+    if (pixelsPerSecond >= 320) {
+        majorStep = 0.25;
+    } else if (pixelsPerSecond >= 180) {
+        majorStep = 0.5;
+    } else if (pixelsPerSecond >= 90) {
+        majorStep = 1;
+    } else if (pixelsPerSecond >= 50) {
+        majorStep = 2;
+    } else {
+        majorStep = 5;
+    }
+
+    return {
+        majorStep,
+        mediumStep: majorStep / 2,
+        minorStep: majorStep / 5,
+    };
+}
+
+function buildWaveformGridLine(leftPercent, className = "") {
+    const line = document.createElement("span");
+    line.className = `waveform-grid-line${className ? ` ${className}` : ""}`;
+    line.style.left = `${leftPercent}%`;
+    return line;
+}
+
+function buildWaveformGridLabel(leftPercent, text) {
+    const label = document.createElement("span");
+    label.className = "waveform-grid-label";
+    label.style.left = `${leftPercent}%`;
+    label.textContent = text;
+    return label;
+}
+
+function renderWaveformTimeGrid() {
+    const grid = document.getElementById("waveformGrid");
+    if (grid) {
+        grid.innerHTML = "";
+    }
+    waveformGridRenderKey = "";
+}
+
+function renderWaveformClipSegments(renderToken = waveformOverlayRenderToken) {
+    const container = document.getElementById("waveformClipSegments");
+    const handlesContainer = document.getElementById("waveformBoundaryHandles");
+    const content = document.getElementById("waveformContent");
+    const duration = Number(videoPlayer?.duration || getTimelineDuration() || 0);
+    if (!container || !handlesContainer || !content) {
+        return;
+    }
+
+    const contentWidth = getWaveformTimelineWidth(duration);
+    if (content.style.width !== `${contentWidth}px`) {
+        content.style.width = `${contentWidth}px`;
+    }
+    container.innerHTML = "";
+    handlesContainer.innerHTML = "";
+    renderWaveformTimeGrid();
+    if (!segmentsData.length || duration <= 0) {
+        lastWaveformActiveClipIndex = activeSyncedClipIndex;
+        return;
+    }
+
+    const chunkSize = 20;
+    let index = 0;
+
+    const appendChunk = () => {
+        if (renderToken !== waveformOverlayRenderToken) {
+            return;
+        }
+
+        const clipFragment = document.createDocumentFragment();
+        const handleFragment = document.createDocumentFragment();
+        const endIndex = Math.min(index + chunkSize, segmentsData.length);
+
+        for (; index < endIndex; index += 1) {
+            const segment = segmentsData[index];
+            const currentIndex = index;
+            const start = Math.max(0, Number(segment.start) || 0);
+            const end = Math.max(start, Number(segment.end) || start);
+            const width = Math.max(((end - start) / duration) * 100, 0);
+            const tint = getWaveformClipTint(currentIndex, activeSyncedClipIndex === currentIndex);
+            const node = document.createElement("div");
+            node.className = `waveform-clip-segment ${currentIndex % 2 === 0 ? "variant-a" : "variant-b"}${activeSyncedClipIndex === currentIndex ? " active" : ""}`;
+            node.dataset.index = String(currentIndex);
+            node.style.left = `${(start / duration) * 100}%`;
+            node.style.width = `max(calc(${width}% - 0.5px), 12px)`;
+            node.innerHTML = `<div class="clip-bg" aria-hidden="true"></div>`;
+            node.querySelector(".clip-bg").style.backgroundColor = tint;
+            node.title = `Play Clip ${currentIndex + 1}`;
+            node.setAttribute("role", "button");
+            node.setAttribute("tabindex", "0");
+            node.setAttribute("aria-label", `Play Clip ${currentIndex + 1}`);
+            node.addEventListener("pointerdown", (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+            });
+            node.addEventListener("click", (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onClipClick(currentIndex);
+            });
+            node.addEventListener("keydown", (event) => {
+                if (event.key !== "Enter" && event.key !== " ") {
+                    return;
+                }
+
+                event.preventDefault();
+                event.stopPropagation();
+                onClipClick(currentIndex);
+            });
+            clipFragment.appendChild(node);
+
+            if (currentIndex < segmentsData.length - 1) {
+                const boundaryHandle = document.createElement("button");
+                boundaryHandle.type = "button";
+                boundaryHandle.className = "waveform-boundary-handle";
+                boundaryHandle.style.left = `${(end / duration) * 100}%`;
+                boundaryHandle.title = `Drag to adjust Clip ${currentIndex + 1} end and Clip ${currentIndex + 2} start`;
+                boundaryHandle.setAttribute("aria-label", `Adjust boundary between Clip ${currentIndex + 1} and Clip ${currentIndex + 2}`);
+                boundaryHandle.addEventListener("pointerdown", (event) => startWaveformBoundaryDrag(event, currentIndex));
+                handleFragment.appendChild(boundaryHandle);
+            }
+        }
+
+        container.appendChild(clipFragment);
+        handlesContainer.appendChild(handleFragment);
+        lastWaveformActiveClipIndex = activeSyncedClipIndex;
+
+        if (index < segmentsData.length) {
+            window.requestAnimationFrame(appendChunk);
+        }
+    };
+
+    appendChunk();
+}
+
+function startWaveformBoundaryDrag(event, index) {
+    if (!segmentsData[index] || !segmentsData[index + 1]) {
+        return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    waveformBoundaryDragState = {
+        index,
+        pointerId: event.pointerId,
+        moved: false,
+    };
+
+    event.currentTarget?.classList.add("dragging");
+    event.currentTarget?.setPointerCapture?.(event.pointerId);
+    window.addEventListener("pointermove", handleWaveformBoundaryDrag);
+    window.addEventListener("pointerup", stopWaveformBoundaryDrag);
+    window.addEventListener("pointercancel", stopWaveformBoundaryDrag);
+}
+
+function handleWaveformBoundaryDrag(event) {
+    if (!waveformBoundaryDragState) {
+        return;
+    }
+
+    const nextTime = getSnappedTime(getCustomPlayerTimeFromPointer(event));
+    applyTimelineBoundary(waveformBoundaryDragState.index, "end", nextTime);
+    waveformBoundaryDragState.moved = true;
+
+    scheduleWaveformClipSegmentsRender();
+    if (timelineVisible) {
+        requestTimelineRender();
+    }
+
+    syncActiveClipFromVideo(false);
+    requestWaveformUiUpdate();
+}
+
+async function stopWaveformBoundaryDrag(event) {
+    if (!waveformBoundaryDragState) {
+        return;
+    }
+
+    const { index, moved } = waveformBoundaryDragState;
+    waveformBoundaryDragState = null;
+
+    document.querySelectorAll(".waveform-boundary-handle.dragging").forEach((handle) => {
+        handle.classList.remove("dragging");
+    });
+
+    window.removeEventListener("pointermove", handleWaveformBoundaryDrag);
+    window.removeEventListener("pointerup", stopWaveformBoundaryDrag);
+    window.removeEventListener("pointercancel", stopWaveformBoundaryDrag);
+
+    if (!moved) {
+        return;
+    }
+
+    const segment = segmentsData[index];
+    if (!segment) {
+        return;
+    }
+
+    setClipTimestampDraft(index, {
+        start: Number(segment.start),
+        end: Number(segment.end),
+    });
+    markClipsModified([index, index + 1]);
+    transcriptDirty = true;
+    generatedSummary.segments = segmentsData.length;
+    markAllEnglishAudioDirty();
+    renderSegments();
+    if (timelineVisible) {
+        requestTimelineRender(true);
+    }
+    scheduleWaveformClipSegmentsRender({ immediate: true });
+    refreshUiState();
+    saveAppState();
+}
+
+function destroyWaveform() {
+    if (waveform) {
+        waveform.destroy();
+        waveform = null;
+    }
+    waveformPeaks = [];
+    const peaksCanvas = document.getElementById("waveformPeaksCanvas");
+    if (peaksCanvas) {
+        const context = peaksCanvas.getContext("2d");
+        context?.clearRect(0, 0, peaksCanvas.width, peaksCanvas.height);
+    }
+}
+
+function initializeWaveform() {
+    const container = document.getElementById("waveform");
+    const sourceUrl = videoPlayer?.currentSrc || videoPlayer?.src || "";
+    if (!container) {
+        return;
+    }
+
+    destroyWaveform();
+
+    if (!sourceUrl || !window.WaveSurfer) {
+        container.classList.add("empty");
+        container.textContent = "Waveform unavailable";
+        return;
+    }
+
+    container.classList.remove("empty");
+    container.textContent = "";
+    ensureWaveformPeaksCanvas();
+
+    const cachedPeaks = readWaveformPeaksCache(getWaveformCacheKey());
+    if (cachedPeaks.length) {
+        waveformPeaks = cachedPeaks;
+        renderWaveformPeakCanvas();
+    }
+
+    waveform = WaveSurfer.create({
+        container,
+        waveColor: "#9aa0a6",
+        progressColor: "#ff453a",
+        cursorColor: "transparent",
+        cursorWidth: 0,
+        height: 84,
+        minPxPerSec: getWaveformPixelsPerSecond(),
+        barWidth: 2,
+        barGap: 1,
+        barRadius: 0,
+        normalize: false,
+        interact: false,
+        url: sourceUrl,
+    });
+
+    waveform.on("ready", () => {
+        if (typeof waveform.exportPeaks === "function") {
+            const peakResolution = Math.max(2000, Math.round((container.clientWidth || 0) * 4));
+            const peaks = waveform.exportPeaks({ channels: 1, maxLength: peakResolution });
+            waveformPeaks = Array.isArray(peaks?.[0]) ? peaks[0] : (Array.isArray(peaks) ? peaks : []);
+            if (waveformPeaks.length) {
+                writeWaveformPeaksCache(getWaveformCacheKey(), waveformPeaks);
+            }
+        }
+        refreshWaveform();
+        renderWaveformPeakCanvas();
+        applyWaveformScale({
+            keepCenteredTime: Number(videoPlayer?.currentTime || 0),
+        });
+        scheduleWaveformClipSegmentsRender({ immediate: true });
+        requestWaveformUiUpdate(true);
+    });
+
+    waveform.on("interaction", (time) => {
+        if (!videoPlayer) {
+            return;
+        }
+        videoPlayer.currentTime = Number(time || 0);
+        updateCustomVideoPlayerUi();
+    });
+}
+
+async function updateSelectedClipBoundary(edge) {
+    if (activeSyncedClipIndex === null || !segmentsData[activeSyncedClipIndex]) {
+        showError("Select a clip before updating timestamps.");
+        return;
+    }
+
+    const index = activeSyncedClipIndex;
+    const currentTime = normalizeTimelineTime(videoPlayer?.currentTime || 0, { disableSnap: false });
+    const start = edge === "start" ? currentTime : getClipTimestampValue(index, "start");
+    const end = edge === "end" ? currentTime : getClipTimestampValue(index, "end");
+
+    setClipTimestampDraft(index, { start, end });
+    renderSegments();
+    await submitClipTimestampUpdate(index);
 }
 
 function formatSegmentDuration(durationSeconds) {
@@ -4245,16 +8060,208 @@ function toggleTimestampDetails(index) {
     toggleButton.setAttribute("aria-expanded", "true");
 }
 
-function setPreviewSource(url) {
+function setPreviewSource(url, options = {}) {
+    const {
+        sourceMode = "original",
+        muted = false
+    } = options;
+
     videoPlayer.src = url || "";
+    videoPlayer.dataset.sourceMode = sourceMode;
+    setVideoOutputMuted(muted);
     videoPlayer.load();
+    destroyWaveform();
     resetSyncedClipState();
     resetFullVideoPlaybackState();
     syncPlayPauseLabel();
+    updateCustomVideoPlayerUi();
 }
 
 function hasPlayableVideo() {
     return Boolean(localVideoUrl || previewUrl || videoPath || videoPlayer?.src);
+}
+
+function stopTimelineEditorPlayback(options = {}) {
+    const { keepSelection = false } = options;
+
+    if (videoPlayer) {
+        videoPlayer.pause();
+    }
+
+    stopEnglishClipPlayback();
+    resetActivePlayback();
+    resetFullVideoPlaybackState();
+
+    if (!keepSelection) {
+        resetSyncedClipState();
+    } else {
+        syncPlayPauseLabel();
+        updateCustomVideoPlayerUi();
+    }
+}
+
+function setActiveClip(index) {
+    const clip = segmentsData[index];
+    if (!clip) {
+        activeClip = null;
+        return null;
+    }
+
+    const start = Number(clip.start);
+    const end = Number(clip.end);
+    const safeEnd = Math.max(start, end - FRAME_MARGIN);
+    activeClip = {
+        index,
+        start,
+        end,
+        safeEnd,
+    };
+    isFullVideoMode = false;
+    return activeClip;
+}
+
+function clearActiveClipPlayback() {
+    resetActivePlayback();
+    activeClip = null;
+    isFullVideoMode = true;
+}
+
+function playClip(start, end) {
+    if (!videoPlayer) {
+        return;
+    }
+
+    clipPlayback.active = false;
+    stopPreciseSegmentPlaybackMonitor();
+    clearSegmentStopTimeout();
+
+    clipPlayback.start = Number(start || 0);
+    clipPlayback.end = Number(end || 0);
+    clipPlayback.safeEnd = Math.max(clipPlayback.start, clipPlayback.end - FRAME_MARGIN);
+
+    videoPlayer.currentTime = clipPlayback.start;
+    activeSegmentStopTimeoutId = window.setTimeout(() => {
+        clipPlayback.active = true;
+
+        if (!activeClip) {
+            clipPlayback.active = false;
+            return;
+        }
+
+        videoPlayer.play().catch((error) => {
+            console.warn("Unable to start clip playback", error);
+            resetActivePlayback();
+        });
+        monitorClipPlayback(videoPlayer);
+    }, 30);
+}
+
+function startClipPlayback(index, options = {}) {
+    const { startTime = null, shouldScroll = true } = options;
+    const clip = segmentsData[index];
+    if (!videoPlayer || !clip) {
+        return;
+    }
+
+    const clipStart = Number(clip.start);
+    const clipEnd = Number(clip.end);
+    const resolvedStartTime = startTime === null
+        ? clipStart
+        : Math.min(Math.max(Number(startTime), clipStart), clipEnd);
+
+    stopTimelineEditorPlayback({ keepSelection: true });
+    ensureOriginalPreviewSource();
+
+    setActiveClip(index);
+    videoPlayer.currentTime = resolvedStartTime;
+    updateActiveClipUi(index, { shouldScroll });
+    setButtonPlaying(index, true);
+    syncPlayPauseLabel();
+    setVideoOutputMuted(false);
+    playClip(resolvedStartTime, clipEnd);
+}
+
+function playFromCurrentTime() {
+    if (!videoPlayer) {
+        return;
+    }
+
+    stopEnglishClipPlayback();
+    clearActiveClipPlayback();
+    ensureOriginalPreviewSource();
+    setVideoOutputMuted(false);
+    videoPlayer.play().catch((error) => {
+        console.warn("Unable to start playback", error);
+    });
+}
+
+function getResolvedCurrentClipIndex() {
+    if (activeSyncedClipIndex !== null && segmentsData[activeSyncedClipIndex]) {
+        return activeSyncedClipIndex;
+    }
+
+    const currentTime = Number(videoPlayer?.currentTime || 0);
+    const clipIndex = getActiveClipIndex(currentTime);
+    if (clipIndex !== null) {
+        return clipIndex;
+    }
+
+    if (!segmentsData.length) {
+        return null;
+    }
+
+    if (currentTime <= Number(segmentsData[0].start || 0)) {
+        return 0;
+    }
+
+    for (let index = 0; index < segmentsData.length - 1; index += 1) {
+        const currentEnd = Number(segmentsData[index].end || 0);
+        const nextStart = Number(segmentsData[index + 1].start || currentEnd);
+        if (currentTime >= currentEnd && currentTime < nextStart) {
+            return index;
+        }
+    }
+
+    return segmentsData.length - 1;
+}
+
+function playAdjacentClip(direction) {
+    if (!hasPlayableVideo() || !segmentsData.length) {
+        return;
+    }
+
+    const currentIndex = getResolvedCurrentClipIndex();
+    if (currentIndex === null) {
+        return;
+    }
+
+    const targetIndex = Math.min(Math.max(currentIndex + direction, 0), segmentsData.length - 1);
+    startClipPlayback(targetIndex, {
+        startTime: Number(segmentsData[targetIndex].start),
+        shouldScroll: true,
+    });
+}
+
+function playPreviousClip() {
+    clearError();
+    playAdjacentClip(-1);
+}
+
+function playNextClip() {
+    clearError();
+    playAdjacentClip(1);
+}
+
+function onClipClick(index) {
+    if (!hasPlayableVideo() || !segmentsData[index]) {
+        return;
+    }
+
+    clearError();
+    startClipPlayback(index, {
+        startTime: Number(segmentsData[index].start),
+        shouldScroll: true,
+    });
 }
 
 function toggleMainPlayback() {
@@ -4263,11 +8270,13 @@ function toggleMainPlayback() {
         return;
     }
 
-    if (videoPlayer.paused) {
-        videoPlayer.play();
-    } else {
+    if (!videoPlayer.paused) {
         videoPlayer.pause();
+        return;
     }
+
+    clearError();
+    playFromCurrentTime();
 }
 
 function toggleFullVideoPlayback() {
@@ -4277,23 +8286,267 @@ function toggleFullVideoPlayback() {
     }
 
     clearError();
+    ensureOriginalPreviewSource();
+    stopEnglishClipPlayback();
 
-    if (!videoPlayer.paused && isFullVideoMode) {
+    if (!videoPlayer.paused && isFullVideoMode && videoPlayer.dataset.sourceMode !== "english") {
         videoPlayer.pause();
         resetFullVideoPlaybackState();
         return;
     }
 
-    resetActivePlayback();
-    isFullVideoMode = true;
+    clearActiveClipPlayback();
     syncPlayPauseLabel();
-    videoPlayer.play();
+    setVideoOutputMuted(false);
+    videoPlayer.play().catch((error) => {
+        console.warn("Unable to start full video playback", error);
+    });
+}
+
+async function ensureClipEnglishAudio(index, options = {}) {
+    const { showClipLoading = true } = options;
+    const segment = segmentsData[index];
+    if (!segment) {
+        throw new Error("Clip not found.");
+    }
+
+    if (segment.englishAudioReady && segment.englishAudioUrl && !segment.englishAudioDirty) {
+        return segment.englishAudioUrl;
+    }
+
+    segmentsData[index] = decorateSegmentForEnglishAudio({
+        ...segment,
+        clip_id: buildClipId(index, segment),
+        englishAudioLoading: true,
+        englishAudioError: "",
+        englishAudioRegenerating: Boolean(segment.englishAudioDirty || segment.englishAudioUrl),
+        audioStatus: "generating",
+    }, index);
+    if (showClipLoading) {
+        setEnglishClipButtonState(index, { isLoading: true });
+    }
+    updateSegmentTranslationUi(index);
+    renderSegments();
+
+    try {
+        const response = await fetch("/generate-clip-audio", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                clip_id: buildClipId(index, segment),
+                text: segment.text || "",
+                video_path: videoPath,
+                start_time: Number(segment.start),
+                end_time: Number(segment.end),
+                invalidate: Boolean(segment.englishAudioDirty),
+                voice_style: getSelectedVoiceStyle()
+            })
+        });
+
+        const data = await response.json();
+        if (!response.ok || !data.ok) {
+            throw new Error(getEnglishPlaybackErrorMessage(data.error || data.detail || data.message));
+        }
+
+        segmentsData[index] = decorateSegmentForEnglishAudio({
+            ...segmentsData[index],
+            englishAudioLoading: false,
+            englishAudioDirty: false,
+            englishAudioReady: true,
+            englishAudioRegenerating: false,
+            englishAudioError: "",
+            englishAudioUrl: data.audio_url,
+            englishAudioHash: data.text_hash,
+            englishAudioBackgroundStatus: "ready",
+            audioStatus: "ready",
+        }, index);
+        saveAppState();
+        return data.audio_url;
+    } catch (error) {
+        segmentsData[index] = decorateSegmentForEnglishAudio({
+            ...segmentsData[index],
+            englishAudioLoading: false,
+            englishAudioReady: false,
+            englishAudioRegenerating: false,
+            englishAudioError: getEnglishPlaybackErrorMessage(error.message, "Audio generation failed. Please try again."),
+            englishAudioBackgroundStatus: "error",
+            audioStatus: "dirty",
+        }, index);
+        throw error;
+    } finally {
+        renderSegments();
+    }
+}
+
+async function startEnglishClipPlayback(index, audioUrl) {
+    const segment = segmentsData[index];
+    if (!videoPlayer || !segment || !audioUrl) {
+        throw new Error("English clip audio is unavailable.");
+    }
+
+    stopTimelineEditorPlayback({ keepSelection: true });
+    ensureOriginalPreviewSource();
+
+    const clipStart = Number(segment.start || 0);
+    const clipEnd = Number(segment.end || clipStart);
+
+    setActiveClip(index);
+    updateActiveClipUi(index, { shouldScroll: true });
+    videoPlayer.currentTime = clipStart;
+    setButtonPlaying(index, false);
+    setEnglishClipButtonState(index, { isPlaying: true, isLoading: false });
+    activeEnglishClipIndex = index;
+    setVideoOutputMuted(true);
+    syncPlayPauseLabel();
+
+    const englishAudio = new Audio(audioUrl);
+    englishAudio.preload = "auto";
+    activeEnglishClipAudio = englishAudio;
+
+    englishAudio.addEventListener("ended", () => {
+        if (activeEnglishClipAudio !== englishAudio) {
+            return;
+        }
+        stopEnglishClipPlayback();
+        stopSegmentPlaybackAtBoundary();
+    }, { once: true });
+
+    englishAudio.addEventListener("error", () => {
+        if (activeEnglishClipAudio !== englishAudio) {
+            return;
+        }
+        stopEnglishClipPlayback();
+        resetActivePlayback();
+        showError("Unable to play English clip audio.");
+    }, { once: true });
+
+    playClip(clipStart, clipEnd);
+
+    try {
+        await englishAudio.play();
+    } catch (error) {
+        if (activeEnglishClipAudio === englishAudio) {
+            stopEnglishClipPlayback();
+            resetActivePlayback();
+        }
+        throw error;
+    }
+}
+
+async function playEnglishClip(index) {
+    if (!hasPlayableVideo() || !segmentsData[index]) {
+        showError("Please upload a video first.");
+        return;
+    }
+
+    if (activeEnglishClipIndex === index && activeEnglishClipAudio && !activeEnglishClipAudio.paused) {
+        stopEnglishClipPlayback();
+        resetActivePlayback();
+        syncPlayPauseLabel();
+        return;
+    }
+
+    clearError();
+
+    try {
+        const audioUrl = await ensureClipEnglishAudio(index, { showClipLoading: true });
+        updateEnglishAudioStatusUi(index);
+        await startEnglishClipPlayback(index, audioUrl);
+    } catch (error) {
+        updateEnglishAudioStatusUi(index);
+        showError(getEnglishPlaybackErrorMessage(error.message, "Unable to play English clip."));
+    }
+}
+
+async function toggleEnglishVideoPlayback() {
+    if (!hasPlayableVideo() || !videoPath || !segmentsData.length) {
+        showError("Please upload and process a video first.");
+        return;
+    }
+
+    clearError();
+
+    if (!videoPlayer.paused && isFullVideoMode && videoPlayer.dataset.sourceMode === "english") {
+        videoPlayer.pause();
+        resetFullVideoPlaybackState();
+        return;
+    }
+
+    stopEnglishClipPlayback();
+    resetActivePlayback();
+    await waitForRecentEditsToSettle(2000);
+    englishAudioQueueTimers.forEach((timerId) => window.clearTimeout(timerId));
+    englishAudioQueueTimers.clear();
+
+    showLoading("Preparing English video...", "Generating English audio for clips and stitching the final synced video.", {
+        totalSteps: 3,
+        initialStep: 1,
+        initialLabel: "Checking clip audio cache",
+        initialProgress: 10,
+        processKind: "generate",
+        stageWeights: [0.25, 0.45, 0.30]
+    });
+
+    try {
+        updateLoadingStatus(1, "Checking clip audio cache", 24, "Checking clip-level English audio files");
+        const response = await fetch("/generate-english-video", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                video_path: videoPath,
+                voice_style: getSelectedVoiceStyle(),
+                segments: segmentsData.map((segment, index) => ({
+                    clip_id: buildClipId(index, segment),
+                    text: segment.text || "",
+                    start: Number(segment.start),
+                    end: Number(segment.end)
+                }))
+            })
+        });
+
+        updateLoadingStatus(2, "Merging English audio", 68, "Creating the synced English audio track");
+        const data = await response.json();
+        if (!response.ok || !data.ok) {
+            throw new Error(getEnglishPlaybackErrorMessage(data.error || data.detail || data.message));
+        }
+
+        englishVideoUrl = data.video_url || "";
+        englishVideoSignature = data.signature || "";
+        segmentsData = segmentsData.map((segment, index) => decorateSegmentForEnglishAudio({
+            ...segment,
+            englishAudioDirty: false,
+            englishAudioReady: true,
+            englishAudioLoading: false,
+            englishAudioRegenerating: false,
+            englishAudioError: ""
+        }, index));
+
+        updateLoadingStatus(3, "Starting playback", 96, "Loading the English video in the player");
+        setPreviewSource(englishVideoUrl, { sourceMode: "english", muted: false });
+        isFullVideoMode = true;
+        await videoPlayer.play();
+        saveAppState();
+        await completeLoading("English video ready", "Playing the English audio version now.");
+    } catch (error) {
+        const message = getEnglishPlaybackErrorMessage(error.message, "Audio generation failed. Please try again.");
+        showLoadingError(message);
+        showError(message);
+        await new Promise((resolve) => window.setTimeout(resolve, 1200));
+    } finally {
+        hideLoading();
+        refreshUiState();
+    }
 }
 
 function syncPlayPauseLabel() {
     const button = document.getElementById("playPauseBtn");
     if (button) {
         button.innerText = videoPlayer && !videoPlayer.paused ? "Pause" : "Play";
+    }
+
+    const customPlayButton = document.getElementById("playBtn");
+    if (customPlayButton) {
+        customPlayButton.textContent = videoPlayer && !videoPlayer.paused ? "❚❚" : "▶";
     }
 
     const fullVideoButton = document.getElementById("playVideoBtn");
@@ -4303,6 +8556,17 @@ function syncPlayPauseLabel() {
 
     const isPlayingFullVideo = Boolean(videoPlayer && !videoPlayer.paused && isFullVideoMode);
     fullVideoButton.innerText = isPlayingFullVideo ? "⏸ Pause Video" : "▶ Play Video";
+
+    const englishVideoButton = document.getElementById("playEnglishVideoBtn");
+    if (englishVideoButton) {
+        const isPlayingEnglishVideo = Boolean(
+            videoPlayer
+            && !videoPlayer.paused
+            && isFullVideoMode
+            && videoPlayer.dataset.sourceMode === "english"
+        );
+        englishVideoButton.innerText = isPlayingEnglishVideo ? "⏸ Pause English Video" : "▶ Play English Video";
+    }
 
     if (videoPlayer && !videoPlayer.paused) {
         startTimelinePlayheadLoop();
@@ -4343,7 +8607,8 @@ function updateActiveClipUi(index, options = {}) {
     activeSyncedClipIndex = index;
 
     if (index === null || index === undefined) {
-        document.getElementById("videoSyncLabel").innerText = "Video sync ready";
+        syncWaveformActiveClipState();
+        requestWaveformUiUpdate(true);
         updateTimelinePlayhead();
         return;
     }
@@ -4351,7 +8616,8 @@ function updateActiveClipUi(index, options = {}) {
     const activeCard = document.getElementById(`clip-${index}`);
     activeCard?.classList.add("active");
     document.querySelector(`.timeline-block[data-index="${index}"]`)?.classList.add("active");
-    document.getElementById("videoSyncLabel").innerText = `Synced to Clip ${index + 1}`;
+    syncWaveformActiveClipState();
+    requestWaveformUiUpdate(true);
     updateTimelinePlayhead();
 
     if (shouldScroll && didClipChange && activeCard) {
@@ -4397,7 +8663,25 @@ function handleVideoSync() {
     updateTimelinePlayhead();
 }
 
+function handleVideoSeeking() {
+    if (!videoPlayer) {
+        return;
+    }
+
+    clipPlayback.active = false;
+
+    if (activeClip && Number(videoPlayer.currentTime || 0) > Number(activeClip.end || 0)) {
+        videoPlayer.currentTime = Number(activeClip.end || 0);
+    }
+}
+
 function handleVideoSeeked() {
+    if (activeClip) {
+        const currentTime = Number(videoPlayer?.currentTime || 0);
+        if (currentTime < Number(activeClip.start || 0) || currentTime > Number(activeClip.end || 0)) {
+            clearActiveClipPlayback();
+        }
+    }
     syncActiveClipFromVideo(true);
     updateTimelinePlayhead();
 }
@@ -4407,17 +8691,22 @@ function seekToClip(index, autoplay = true) {
         return;
     }
 
+    ensureOriginalPreviewSource();
+    stopEnglishClipPlayback();
     const start = Number(segmentsData[index].start);
+    if (autoplay) {
+        startClipPlayback(index, {
+            startTime: start,
+            shouldScroll: true,
+        });
+        return;
+    }
+
     resetActivePlayback();
-    isFullVideoMode = autoplay;
+    setActiveClip(index);
     videoPlayer.currentTime = start;
     updateActiveClipUi(index, { shouldScroll: true });
-
-    if (autoplay) {
-        videoPlayer.play();
-    } else {
-        syncPlayPauseLabel();
-    }
+    syncPlayPauseLabel();
 }
 
 function resetSyncedClipState() {
@@ -4427,7 +8716,8 @@ function resetSyncedClipState() {
     }
 
     activeSyncedClipIndex = null;
-    document.getElementById("videoSyncLabel").innerText = "Video sync ready";
+    syncWaveformActiveClipState();
+    requestWaveformUiUpdate(true);
     updateTimelinePlayhead();
 }
 
@@ -4437,46 +8727,122 @@ function resetFullVideoPlaybackState() {
 }
 
 function toggleSegmentPlayback(index, start, end) {
+    void start;
+    void end;
     if (!hasPlayableVideo()) {
         showError("Please upload a video first.");
         return;
     }
 
     clearError();
-
-    if (activeSegmentIndex === index && !videoPlayer.paused) {
-        videoPlayer.pause();
-        resetActivePlayback();
-        resetFullVideoPlaybackState();
-        return;
-    }
-
-    resetButtonState(activeSegmentIndex);
-    activeSegmentIndex = index;
-    activeSegmentEnd = Number(end);
-    isFullVideoMode = false;
-    videoPlayer.currentTime = Number(start);
-    updateActiveClipUi(index, { shouldScroll: true });
-    videoPlayer.play();
-    setButtonPlaying(index, true);
-    syncPlayPauseLabel();
+    seekToClip(index, true);
 }
 
 function handleSegmentPlayback() {
-    if (activeSegmentIndex === null || activeSegmentEnd === null) {
+    return;
+}
+
+function stopPreciseSegmentPlaybackMonitor() {
+    if (activeSegmentPlaybackRaf !== null) {
+        window.cancelAnimationFrame(activeSegmentPlaybackRaf);
+        activeSegmentPlaybackRaf = null;
+    }
+
+    if (
+        activeVideoFrameCallbackId !== null
+        && videoPlayer
+        && typeof videoPlayer.cancelVideoFrameCallback === "function"
+    ) {
+        videoPlayer.cancelVideoFrameCallback(activeVideoFrameCallbackId);
+        activeVideoFrameCallbackId = null;
+    }
+}
+
+function clearSegmentStopTimeout() {
+    if (activeSegmentStopTimeoutId !== null) {
+        window.clearTimeout(activeSegmentStopTimeoutId);
+        activeSegmentStopTimeoutId = null;
+    }
+}
+
+function stopSegmentPlaybackAtBoundary() {
+    if (!videoPlayer || !activeClip) {
         return;
     }
 
-    if (videoPlayer.currentTime >= activeSegmentEnd) {
-        videoPlayer.pause();
-        resetActivePlayback();
+    const clipEnd = Number(activeClip.end || 0);
+    clipPlayback.active = false;
+    videoPlayer.pause();
+    videoPlayer.currentTime = clipEnd;
+    stopPreciseSegmentPlaybackMonitor();
+    resetActivePlayback();
+    syncPlayPauseLabel();
+    updateCustomVideoPlayerUi();
+}
+
+function scheduleSegmentStopTimeout() {
+    return;
+}
+
+function monitorClipPlayback(video) {
+    stopPreciseSegmentPlaybackMonitor();
+
+    const shouldStop = () => Number(video.currentTime || 0) >= Number(clipPlayback.safeEnd || clipPlayback.end || 0);
+
+    const checkRaf = () => {
+        if (!clipPlayback.active || !activeClip || !video) {
+            stopPreciseSegmentPlaybackMonitor();
+            return;
+        }
+
+        if (shouldStop()) {
+            stopSegmentPlaybackAtBoundary();
+            return;
+        }
+
+        activeSegmentPlaybackRaf = window.requestAnimationFrame(checkRaf);
+    };
+
+    if (typeof video.requestVideoFrameCallback === "function") {
+        const checkFrame = () => {
+            if (!clipPlayback.active || !activeClip || !video) {
+                stopPreciseSegmentPlaybackMonitor();
+                return;
+            }
+
+            if (shouldStop()) {
+                stopSegmentPlaybackAtBoundary();
+                return;
+            }
+
+            activeVideoFrameCallbackId = video.requestVideoFrameCallback(checkFrame);
+        };
+
+        activeVideoFrameCallbackId = video.requestVideoFrameCallback(checkFrame);
+        return;
+    }
+
+    activeSegmentPlaybackRaf = window.requestAnimationFrame(checkRaf);
+}
+
+function startPreciseSegmentPlaybackMonitor() {
+    stopPreciseSegmentPlaybackMonitor();
+    monitorClipPlayback(videoPlayer);
+}
+
+function handleClipPlaybackPause() {
+    clipPlayback.active = false;
+    if (activeEnglishClipAudio && !activeEnglishClipAudio.paused) {
+        stopEnglishClipPlayback();
     }
 }
 
 function resetActivePlayback() {
-    resetButtonState(activeSegmentIndex);
-    activeSegmentIndex = null;
-    activeSegmentEnd = null;
+    stopPreciseSegmentPlaybackMonitor();
+    clearSegmentStopTimeout();
+    clipPlayback.active = false;
+    resetButtonState(activeClip?.index ?? null);
+    activeClip = null;
 }
 
 function resetButtonState(index) {
@@ -4485,6 +8851,10 @@ function resetButtonState(index) {
     }
 
     setButtonPlaying(index, false);
+    setEnglishClipButtonState(index, {
+        isPlaying: false,
+        isLoading: Boolean(segmentsData[index]?.englishAudioLoading)
+    });
 }
 
 function setButtonPlaying(index, isPlaying) {
@@ -4494,7 +8864,7 @@ function setButtonPlaying(index, isPlaying) {
     }
 
     button.classList.toggle("playing", isPlaying);
-    button.innerText = isPlaying ? "⏸" : "▶";
+    button.innerText = isPlaying ? "⏸ Telugu" : "▶ Telugu";
     button.setAttribute("aria-label", isPlaying ? `Pause clip ${index + 1}` : `Play clip ${index + 1}`);
     button.setAttribute("title", isPlaying ? `Pause clip ${index + 1}` : `Play clip ${index + 1}`);
 }
