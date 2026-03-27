@@ -25,18 +25,21 @@ cleanup() {
   log "Stopped backend."
 }
 
-kill_port() {
+port_in_use() {
   local port=$1
-  local pid
 
-  pid=$(lsof -ti tcp:$port || true)
+  lsof -ti "tcp:${port}" >/dev/null 2>&1
+}
 
-  if [[ -n "$pid" ]]; then
-    log "Port $port is in use → killing process $pid..."
-    kill -9 $pid || true
-    sleep 2
-    log "Port $port freed"
-  fi
+find_available_port() {
+  local port=$1
+
+  while port_in_use "${port}"; do
+    printf 'Port %s is in use, trying %s...\n' "${port}" "$((port + 1))" >&2
+    port=$((port + 1))
+  done
+
+  printf '%s\n' "${port}"
 }
 
 wait_for_http() {
@@ -59,10 +62,8 @@ start_backend() {
 
   cd "${PROJECT_DIR}"
 
-  # 🔥 Kill port
-  kill_port ${PORT}
+  PORT=$(find_available_port "${PORT}")
 
-  # 🔥 Check venv exists
   if [[ ! -d "venv" ]]; then
     log "ERROR: venv not found. Run:"
     log "python3 -m venv venv"
