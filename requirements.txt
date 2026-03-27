@@ -3,3 +3,10 @@ uvicorn
 python-multipart
 faster-whisper
 jinja2
+deep-translator
+
+torch==2.1.2
+torchaudio==2.1.2
+transformers==4.38.2
+
+TTS
