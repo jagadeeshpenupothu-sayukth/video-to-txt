@@ -2,9 +2,11 @@ fastapi
 uvicorn
 python-multipart
 faster-whisper
-whisperx
 jinja2
-torch
-TTS
-googletrans==4.0.0rc1
 deep-translator
+
+torch==2.1.2
+torchaudio==2.1.2
+transformers==4.38.2
+
+TTS
