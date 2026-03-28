@@ -18,7 +18,7 @@ from urllib import request as urllib_request
 from urllib.parse import quote
 
 from fastapi import BackgroundTasks, Body, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from deep_translator import GoogleTranslator
@@ -53,6 +53,10 @@ AUDIO_AUTO_ALIGN_MIN_SILENCE_SECONDS = 0.18
 AUDIO_AUTO_ALIGN_MAX_EDGE_LOOK_SECONDS = 1.25
 WORD_GAP_SPLIT_SECONDS = 0.3
 WORD_GAP_PUNCTUATION_SPLIT_SECONDS = 0.16
+SENTENCE_PAUSE_SPLIT_SECONDS = 0.6
+SILENCE_SNAP_THRESHOLD_SECONDS = 0.5
+START_SILENCE_SNAP_THRESHOLD_SECONDS = 0.7
+CLIP_EDGE_TRIM_BUFFER_SECONDS = 0.05
 MIN_CLIP_DURATION_SECONDS = 0.8
 MERGE_SHORT_CLIP_SECONDS = 1.0
 TARGET_CLIP_DURATION_SECONDS = 4.8
@@ -109,6 +113,7 @@ FINAL_VIDEO_MAX_OVERAGE_SECONDS = 3.0
 FINAL_VIDEO_TARGET_OVERAGE_SECONDS = 2.0
 VOICE_STYLE_DEFAULT = "tutorial"
 ENGLISH_AUDIO_PIPELINE_VERSION = "v2_consistent_voice"
+USE_ALIGNMENT_DEBUG_MODE = os.getenv("USE_ALIGNMENT_DEBUG_MODE", "0").strip().lower() in {"1", "true", "yes", "on"}
 VOICE_STYLE_CONFIG = {
     "tutorial": {
         "comma_pause": 0.24,
@@ -176,6 +181,15 @@ audio_generation_workers = {}
 audio_generation_workers_lock = threading.Lock()
 translation_cache = {}
 translation_cache_lock = threading.Lock()
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    print(f"🔥 ERROR: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={"error": str(exc)},
+    )
 
 
 def log(msg):
@@ -707,6 +721,92 @@ def detect_silence_regions(audio_path, media_duration, noise_db=AUDIO_AUTO_ALIGN
     return silences
 
 
+def detect_silence(audio_path, media_duration=None):
+    try:
+        effective_duration = float(media_duration) if media_duration is not None else get_media_duration(audio_path)
+        silence_regions = detect_silence_regions(audio_path, effective_duration)
+    except Exception as exc:
+        log(f"Silence detection failed, continuing without silence points: {exc}")
+        return []
+
+    silence_points = []
+    for silence in silence_regions or []:
+        try:
+            start = float(silence.get("start", 0.0))
+            end = float(silence.get("end", start))
+        except (TypeError, ValueError, AttributeError):
+            continue
+
+        if end <= start:
+            continue
+        silence_points.append({
+            "start": round_timestamp_value(start),
+            "end": round_timestamp_value(end),
+            "mid": round_timestamp_value((start + end) / 2.0),
+        })
+
+    if not silence_points:
+        return []
+
+    return sorted(silence_points, key=lambda point: float(point["start"]))
+
+
+def snap_start_to_silence(start_time, silence_points, threshold=START_SILENCE_SNAP_THRESHOLD_SECONDS):
+    original_start = round_timestamp_value(start_time)
+    if not silence_points:
+        return original_start
+
+    candidates = [
+        point
+        for point in silence_points
+        if float(point.get("end", 0.0)) <= original_start
+    ]
+    if not candidates:
+        return original_start
+
+    nearest = max(candidates, key=lambda point: float(point.get("end", 0.0)))
+    snapped_start = round_timestamp_value(float(nearest.get("end", original_start)))
+    if (original_start - snapped_start) <= float(threshold):
+        return max(snapped_start, 0.0)
+    return original_start
+
+
+def snap_end_to_silence(end_time, silence_points, min_end_time=None, threshold=SILENCE_SNAP_THRESHOLD_SECONDS):
+    original_end = round_timestamp_value(end_time)
+    minimum_end = original_end if min_end_time is None else round_timestamp_value(min_end_time)
+    if not silence_points:
+        return max(original_end, minimum_end)
+
+    candidates = [
+        point
+        for point in silence_points
+        if float(point.get("start", original_end)) >= original_end
+    ]
+    if not candidates:
+        return max(original_end, minimum_end)
+
+    nearest = min(candidates, key=lambda point: float(point.get("start", original_end)) - original_end)
+    snapped_end = round_timestamp_value(float(nearest.get("start", original_end)))
+    if (snapped_end - original_end) <= float(threshold):
+        return max(snapped_end, minimum_end)
+    return max(original_end, minimum_end)
+
+
+def snap_to_nearest_silence(timestamp, silence_points, threshold=SILENCE_SNAP_THRESHOLD_SECONDS):
+    target_time = round_timestamp_value(timestamp)
+    if not silence_points:
+        return target_time
+
+    nearest = min(
+        silence_points,
+        key=lambda point: abs(float(point.get("mid", target_time)) - float(target_time)),
+    )
+    nearest_mid = round_timestamp_value(float(nearest.get("mid", target_time)))
+    if abs(float(nearest_mid) - float(target_time)) <= float(threshold):
+        return nearest_mid
+    return target_time
+
+
 def detect_energy_regions(
     audio_path,
     window_ms=ENERGY_WINDOW_MS,
@@ -1072,6 +1172,197 @@ def validate_continuity(segments):
         previous_end_ms = end_ms
 
 
+def log_pipeline_observability(
+    video_duration,
+    audio_duration,
+    whisper_segments,
+    aligned_words,
+    alignment_metadata,
+    sentence_groups,
+    final_segments,
+):
+    safe_video_duration = float(video_duration or 0.0)
+    safe_audio_duration = float(audio_duration or 0.0)
+    safe_whisper_segments = list(whisper_segments or [])
+    safe_aligned_words = list(aligned_words or [])
+    safe_sentence_groups = list(sentence_groups or [])
+    safe_final_segments = sorted(
+        (dict(segment) for segment in (final_segments or [])),
+        key=lambda item: (float(item.get("start", 0.0)), float(item.get("end", 0.0))),
+    )
+    min_step = 1.0 / DEFAULT_AUDIO_SAMPLE_RATE
+
+    print("\n=== PIPELINE OBSERVABILITY ===")
+
+    print("1) INPUT SUMMARY")
+    print(f"video_duration={round_timestamp_value(safe_video_duration)}")
+    print(f"audio_duration={round_timestamp_value(safe_audio_duration)}")
+    print(f"whisper_segments_total={len(safe_whisper_segments)}")
+
+    print("\n2) WHISPER OUTPUT (SOURCE OF TRUTH)")
+    for index, segment in enumerate(safe_whisper_segments, start=1):
+        segment_text = clean_text(getattr(segment, "text", ""))
+        segment_start = round_timestamp_value(float(getattr(segment, "start", 0.0)))
+        segment_end = round_timestamp_value(float(getattr(segment, "end", segment_start)))
+        segment_duration = round_timestamp_value(max(segment_end - segment_start, 0.0))
+        print(
+            f"[W{index}] start={segment_start} end={segment_end} duration={segment_duration} "
+            f"text={segment_text!r}"
+        )
+
+    print("\n3) ALIGNMENT SUMMARY")
+    alignment_used = bool((alignment_metadata or {}).get("used"))
+    alignment_mode = "WHISPERX" if alignment_used else "WHISPER_FALLBACK"
+    words_per_second = (
+        float(len(safe_aligned_words)) / safe_audio_duration
+        if safe_audio_duration > 0.0
+        else 0.0
+    )
+    print(f"alignment_source={alignment_mode}")
+    print(f"aligned_words_total={len(safe_aligned_words)}")
+    print(f"aligned_word_density_wps={round(words_per_second, 4)}")
+
+    print("\n4) SENTENCE SEGMENT VIEW")
+    for index, sentence in enumerate(safe_sentence_groups, start=1):
+        sentence_text = clean_text(sentence.get("text", ""))
+        original_start = round_timestamp_value(float(sentence.get("start", 0.0)))
+        original_end = round_timestamp_value(float(sentence.get("end", original_start)))
+        refined_start = round_timestamp_value(float(sentence.get("start_time", original_start)))
+        refined_end = round_timestamp_value(float(sentence.get("end_time", original_end)))
+        delta_start = round_timestamp_value(refined_start - original_start)
+        delta_end = round_timestamp_value(refined_end - original_end)
+        print(
+            f"[S{index}] original=({original_start}->{original_end}) "
+            f"refined=({refined_start}->{refined_end}) "
+            f"delta=({delta_start},{delta_end}) text={sentence_text!r}"
+        )
+
+    print("\n5) AUDIO COVERAGE ANALYSIS")
+    total_covered = 0.0
+    total_gaps = 0.0
+    total_overlap = 0.0
+    coverage_flags = []
+    previous_end = 0.0
+    for index, segment in enumerate(safe_final_segments, start=1):
+        start = float(segment.get("start", 0.0))
+        end = float(segment.get("end", start))
+        total_covered += max(end - start, 0.0)
+        delta = start - previous_end
+        if abs(delta) > min_step:
+            if delta > 0.0:
+                total_gaps += delta
+                coverage_flags.append(
+                    f"GAP before segment {index}: {round_timestamp_value(delta)}s "
+                    f"({round_timestamp_value(previous_end)}->{round_timestamp_value(start)})"
+                )
+            else:
+                overlap = abs(delta)
+                total_overlap += overlap
+                coverage_flags.append(
+                    f"OVERLAP before segment {index}: {round_timestamp_value(overlap)}s "
+                    f"({round_timestamp_value(start)}<{round_timestamp_value(previous_end)})"
+                )
+        previous_end = max(previous_end, end)
+
+    if safe_video_duration > 0.0:
+        tail_delta = safe_video_duration - previous_end
+        if abs(tail_delta) > min_step:
+            if tail_delta > 0.0:
+                total_gaps += tail_delta
+                coverage_flags.append(
+                    f"GAP at end: {round_timestamp_value(tail_delta)}s "
+                    f"({round_timestamp_value(previous_end)}->{round_timestamp_value(safe_video_duration)})"
+                )
+            else:
+                overlap = abs(tail_delta)
+                total_overlap += overlap
+                coverage_flags.append(
+                    f"OVERLAP beyond video end: {round_timestamp_value(overlap)}s"
+                )
+
+    print(f"total_clip_coverage={round_timestamp_value(total_covered)}")
+    print(f"total_uncovered_gaps={round_timestamp_value(total_gaps)}")
+    print(f"total_overlap={round_timestamp_value(total_overlap)}")
+    if coverage_flags:
+        for flag in coverage_flags:
+            print(flag)
+    else:
+        print("No coverage gaps or overlaps detected.")
+
+    print("\n6) FINAL SEGMENT CHAIN VALIDATION")
+    chain_flags = []
+    previous_end = None
+    for index, segment in enumerate(safe_final_segments, start=1):
+        start = float(segment.get("start", 0.0))
+        end = float(segment.get("end", start))
+        duration = max(end - start, 0.0)
+        if previous_end is None:
+            diff = 0.0
+            state = "START"
+        else:
+            diff = start - previous_end
+            if abs(diff) <= min_step:
+                state = "CONTIGUOUS"
+            elif diff > 0.0:
+                state = "GAP"
+                chain_flags.append(f"Segment {index} has GAP of {round_timestamp_value(diff)}s")
+            else:
+                state = "OVERLAP"
+                chain_flags.append(f"Segment {index} has OVERLAP of {round_timestamp_value(abs(diff))}s")
+
+        print(
+            f"[C{index}] start={round_timestamp_value(start)} "
+            f"end={round_timestamp_value(end)} "
+            f"duration={round_timestamp_value(duration)} "
+            f"prev_end_diff={round_timestamp_value(diff)} status={state}"
+        )
+        previous_end = end
+
+    if chain_flags:
+        print("Chain flags:")
+        for flag in chain_flags:
+            print(flag)
+    else:
+        print("No discontinuity, gap, or overlap flags in segment chain.")
+
+    print("\n7) LAST SEGMENT CHECK")
+    if safe_final_segments:
+        last_end = float(safe_final_segments[-1].get("end", 0.0))
+    else:
+        last_end = 0.0
+    end_difference = round_timestamp_value(safe_video_duration - last_end)
+    print(f"last_segment_end={round_timestamp_value(last_end)}")
+    print(f"video_duration={round_timestamp_value(safe_video_duration)}")
+    print(f"difference={end_difference}")
+    if abs(end_difference) > min_step:
+        print("FINAL SEGMENT DOES NOT COVER VIDEO END")
+    else:
+        print("Final segment reaches video end within frame precision.")
+
+    print("\n8) HUMAN-READABLE SUMMARY")
+    has_chain_issues = bool(chain_flags)
+    has_coverage_issues = bool(coverage_flags)
+    if not has_chain_issues and not has_coverage_issues:
+        pipeline_status = "Stable"
+    elif has_chain_issues or has_coverage_issues:
+        pipeline_status = "Partially unstable" if safe_final_segments else "Misaligned"
+    else:
+        pipeline_status = "Misaligned"
+
+    if not has_chain_issues and not has_coverage_issues and alignment_used:
+        alignment_quality = "High consistency"
+    elif not has_chain_issues and not has_coverage_issues:
+        alignment_quality = "Consistent fallback"
+    elif safe_sentence_groups:
+        alignment_quality = "Mixed consistency"
+    else:
+        alignment_quality = "Low consistency"
+
+    print(f"alignment_quality={alignment_quality}")
+    print(f"pipeline_status={pipeline_status}")
+    print("=== END PIPELINE OBSERVABILITY ===\n")
+
+
 def transcribe(audio, fps, media_duration, video_path=None, alignment_mode=ALIGNMENT_MODE):
     model = get_whisper_model()
     del fps, video_path
@@ -1089,33 +1380,352 @@ def transcribe(audio, fps, media_duration, video_path=None, alignment_mode=ALIGN
         no_speech_threshold=WHISPER_NO_SPEECH_THRESHOLD,
     )
     source_segments = list(source_segments)
+    print("=== WHISPER RAW OUTPUT ===")
+    for seg in source_segments[:5]:
+        print("TEXT:", clean_text(getattr(seg, "text", "")))
+        print("START:", round_timestamp_value(float(getattr(seg, "start", 0.0))), "END:", round_timestamp_value(float(getattr(seg, "end", 0.0))))
+    print("==========================")
+
     source_words = extract_words_from_whisper_segments(source_segments)
-    source_text_segments = extract_text_segments_from_whisper_segments(source_segments)
-    source_timed_segments = extract_timed_segments_from_whisper_segments(source_segments)
+    whisper_sentences = []
+    for seg in source_segments:
+        seg_text = clean_text(getattr(seg, "text", ""))
+        seg_start = getattr(seg, "start", None)
+        seg_end = getattr(seg, "end", None)
+        if not seg_text or seg_start is None or seg_end is None:
+            continue
+        whisper_sentences.append({
+            "text": seg_text,
+            "start": round_timestamp_value(float(seg_start)),
+            "end": round_timestamp_value(float(seg_end)),
+        })
+
+    aligned_words, force_alignment_metadata = try_force_align_words(
+        audio_path=audio,
+        words=source_words,
+        language_code=SOURCE_TRANSCRIBE_LANGUAGE,
+    )
+    print("=== WHISPERX WORDS ===")
+    for word in (aligned_words or [])[:15]:
+        print(
+            get_word_token(word),
+            round_timestamp_value(float(word.get("start", 0.0))),
+            round_timestamp_value(float(word.get("end", 0.0))),
+        )
+    print("======================")
+
+    source_words = aligned_words or source_words
     display_words = source_words
-    display_text_segments = source_text_segments
     alignment_metadata = {
         "enabled": True,
-        "used": True,
-        "method": "whisper_segments",
+        "used": bool(force_alignment_metadata.get("used")),
+        "method": force_alignment_metadata.get("method", "whisper_segment_timing"),
         "mode": resolved_mode,
     }
+    if force_alignment_metadata.get("warning"):
+        alignment_metadata["warning"] = force_alignment_metadata.get("warning")
+    if force_alignment_metadata.get("error"):
+        alignment_metadata["error"] = force_alignment_metadata.get("error")
 
-    aligned_segments = build_aligned_segments(
-        source_words=source_words,
-        display_words=display_words,
-        silence_regions=[],
-        energy_analysis={},
-        media_duration=media_duration,
-        alignment_metadata=alignment_metadata,
-        source_text_segments=source_text_segments,
-        source_timed_segments=source_timed_segments,
-        scene_cuts=[],
-        alignment_mode=resolved_mode,
-        display_text_segments=display_text_segments,
-    )
+    word_source = "WHISPERX" if alignment_metadata.get("used") else "WHISPER"
+    print("WORD SOURCE:", word_source)
+    print("=== DEBUG: WORD SOURCE SAMPLE ===")
+    for word in source_words[:10]:
+        print(
+            f"{get_word_token(word)} | "
+            f"start={round_timestamp_value(float(word.get('start', 0.0)))} | "
+            f"end={round_timestamp_value(float(word.get('end', 0.0)))}"
+        )
+    print("=================================")
+
+    sentence_groups = []
+    for sentence in whisper_sentences:
+        sentence_start = float(sentence.get("start", 0.0))
+        sentence_end = float(sentence.get("end", sentence_start))
+        duration = max(sentence_end - sentence_start, 0.0)
+        sentence_word_count = max(len(clean_text(sentence.get("text", "")).split()), 1)
+        margin = max((duration / sentence_word_count), 1.0 / DEFAULT_AUDIO_SAMPLE_RATE)
+        candidate_words = [
+            word
+            for word in source_words
+            if (sentence_start - margin) <= float(word.get("start", 0.0)) <= (sentence_end + margin)
+        ]
+
+        if candidate_words:
+            hint_start = min(float(word.get("start", sentence_start)) for word in candidate_words)
+            hint_end = max(float(word.get("end", sentence_end)) for word in candidate_words)
+            mapped_words = candidate_words
+        else:
+            hint_start = sentence_start
+            hint_end = sentence_end
+            mapped_words = []
+
+        proposed_start = round_timestamp_value(min(sentence_start, hint_start))
+        proposed_end = round_timestamp_value(max(sentence_end, hint_end))
+        start_time = round_timestamp_value(sentence_start)
+        end_time = round_timestamp_value(sentence_end)
+        sentence_groups.append({
+            "text": sentence.get("text", ""),
+            "start": round_timestamp_value(sentence_start),
+            "end": round_timestamp_value(sentence_end),
+            "start_time": start_time,
+            "end_time": end_time,
+            "hint_start": round_timestamp_value(hint_start),
+            "hint_end": round_timestamp_value(hint_end),
+            "proposed_start": proposed_start,
+            "proposed_end": proposed_end,
+            "mapped_words": mapped_words,
+        })
+
+    if sentence_groups:
+        energy_analysis = detect_energy_regions(audio)
+        energy_windows = list(energy_analysis.get("windows") or [])
+        min_step = 1.0 / DEFAULT_AUDIO_SAMPLE_RATE
+        alignment_metadata["method"] = "whisper_audio_boundaries"
+
+        def choose_transition_boundary(search_left, search_right, fallback):
+            left = float(min(search_left, search_right))
+            right = float(max(search_left, search_right))
+            fallback_value = float(fallback)
+            candidates = [
+                window for window in energy_windows
+                if float(window.get("end", left)) >= left and float(window.get("start", right)) <= right
+            ]
+            if not candidates:
+                return round_timestamp_value(fallback_value)
+
+            candidates = sorted(candidates, key=lambda window: float(window.get("start", 0.0)))
+            rms_values = sorted(float(window.get("rms", 0.0)) for window in candidates)
+            median_rms = rms_values[len(rms_values) // 2]
+            min_rms = rms_values[0]
+            silence_threshold = (median_rms + min_rms) / 2.0
+
+            silence_runs = []
+            run_start = None
+            run_end = None
+            for window in candidates:
+                rms = float(window.get("rms", 0.0))
+                window_start = float(window.get("start", left))
+                window_end = float(window.get("end", window_start))
+                if rms <= silence_threshold:
+                    if run_start is None:
+                        run_start = window_start
+                    run_end = window_end
+                else:
+                    if run_start is not None and run_end is not None:
+                        silence_runs.append((run_start, run_end))
+                    run_start = None
+                    run_end = None
+            if run_start is not None and run_end is not None:
+                silence_runs.append((run_start, run_end))
+
+            transition_candidates = []
+            for run_start, run_end in silence_runs:
+                prev_window = None
+                next_window = None
+                for window in candidates:
+                    window_end = float(window.get("end", run_start))
+                    if window_end <= run_start:
+                        prev_window = window
+                for window in candidates:
+                    window_start = float(window.get("start", run_end))
+                    if window_start >= run_end:
+                        next_window = window
+                        break
+                if prev_window is None or next_window is None:
+                    continue
+                transition_time = (run_start + run_end) / 2.0
+                transition_candidates.append(transition_time)
+
+            if transition_candidates:
+                best_transition = min(
+                    transition_candidates,
+                    key=lambda timestamp: abs(float(timestamp) - fallback_value),
+                )
+                return round_timestamp_value(best_transition)
+
+            strongest_fall = min(
+                candidates,
+                key=lambda window: float(window.get("delta", 0.0)),
+            )
+            strongest_rise = max(
+                candidates,
+                key=lambda window: float(window.get("delta", 0.0)),
+            )
+            fall_time = float(strongest_fall.get("end", fallback_value))
+            rise_time = float(strongest_rise.get("start", fallback_value))
+
+            if fall_time <= rise_time:
+                return round_timestamp_value((fall_time + rise_time) / 2.0)
+            return round_timestamp_value(fallback_value)
+
+        boundaries = [0.0 for _ in range(len(sentence_groups) + 1)]
+
+        for index in range(len(sentence_groups) - 1):
+            current = sentence_groups[index]
+            next_sentence = sentence_groups[index + 1]
+            current_whisper_end = float(current.get("end", 0.0))
+            next_whisper_start = float(next_sentence.get("start", current_whisper_end))
+            fallback_boundary = round_timestamp_value((current_whisper_end + next_whisper_start) / 2.0)
+
+            search_left = min(current_whisper_end, next_whisper_start)
+            search_right = max(current_whisper_end, next_whisper_start)
+            if search_right <= search_left:
+                search_left = min(
+                    float(current.get("hint_end", current_whisper_end)),
+                    current_whisper_end,
+                    next_whisper_start,
+                    float(next_sentence.get("hint_start", next_whisper_start)),
+                )
+                search_right = max(
+                    float(current.get("hint_end", current_whisper_end)),
+                    current_whisper_end,
+                    next_whisper_start,
+                    float(next_sentence.get("hint_start", next_whisper_start)),
+                )
+                search_left = max(float(current.get("start", 0.0)), search_left)
+                search_right = min(float(next_sentence.get("end", media_duration)), search_right)
+
+            boundary = choose_transition_boundary(search_left, search_right, fallback_boundary)
+            if search_right > search_left:
+                boundary = round_timestamp_value(min(max(float(boundary), search_left), search_right))
+            else:
+                boundary = fallback_boundary
+            boundaries[index + 1] = boundary
+
+        boundaries[0] = 0.0
+        boundaries[-1] = float(media_duration)
+
+        for index in range(1, len(boundaries)):
+            lower_bound = float(boundaries[index - 1]) + min_step
+            boundaries[index] = round_timestamp_value(max(float(boundaries[index]), lower_bound))
+
+        boundaries[-1] = round_timestamp_value(float(media_duration))
+        for index in range(len(boundaries) - 2, -1, -1):
+            upper_bound = float(boundaries[index + 1]) - min_step
+            boundaries[index] = round_timestamp_value(min(float(boundaries[index]), upper_bound))
+            boundaries[index] = round_timestamp_value(max(0.0, float(boundaries[index])))
+
+        for index, sentence in enumerate(sentence_groups):
+            sentence["start_time"] = round_timestamp_value(float(boundaries[index]))
+            sentence["end_time"] = round_timestamp_value(float(boundaries[index + 1]))
+
+    print("=== TEXT SOURCE CHECK ===")
+    print("Whisper sentence:", clean_text(getattr(source_segments[0], "text", "")) if source_segments else "")
+    print("Current sentence:", sentence_groups[0].get("text", "") if sentence_groups else "")
+    print("=========================")
+    print("=== SENTENCE WORD MAPPING ===")
+    for sentence in sentence_groups[:5]:
+        mapped_words = [clean_text(word.get("text", "")) for word in (sentence.get("mapped_words") or [])]
+        print("TEXT:", sentence.get("text", ""))
+        print("WORDS:", mapped_words)
+    print("=============================")
+    print("=== MISSING WORD CHECK ===")
+    for sentence in sentence_groups[:5]:
+        text_words = [clean_text(token) for token in sentence.get("text", "").split() if clean_text(token)]
+        mapped_words = [clean_text(word.get("text", "")) for word in (sentence.get("mapped_words") or [])]
+        print("TEXT:", text_words)
+        print("MAPPED:", mapped_words)
+        print("MISSING:", sorted(set(text_words) - set(mapped_words)))
+    print("===========================")
+
+    print("=== DEBUG: SENTENCE TIMING ===")
+    for sentence in sentence_groups[:5]:
+        print(f"TEXT: {sentence.get('text', '')}")
+        print(
+            f"START: {round_timestamp_value(float(sentence.get('start_time', 0.0)))}, "
+            f"END: {round_timestamp_value(float(sentence.get('end_time', 0.0)))}"
+        )
+    print("================================")
+    aligned_segments = []
+    min_step = 1.0 / DEFAULT_AUDIO_SAMPLE_RATE
+    for index, sentence in enumerate(sentence_groups):
+        raw_text = clean_text(sentence.get("text", ""))
+        if not raw_text:
+            continue
+
+        start_time = round_timestamp_value(max(0.0, float(sentence.get("start_time", 0.0))))
+        end_time = round_timestamp_value(min(float(media_duration), float(sentence.get("end_time", start_time))))
+        if end_time <= start_time:
+            end_time = round_timestamp_value(min(float(media_duration), start_time + min_step))
+        if end_time <= start_time:
+            continue
+
+        mapped_words = find_words_in_range(source_words, start_time, end_time) or list(sentence.get("mapped_words") or [])
+        words_per_second = get_words_per_second(mapped_words)
+        confidence = average_word_confidence(mapped_words)
+        confidence_status = get_confidence_status(confidence)
+        display_start, display_end = compute_subtitle_display_timing(
+            start_time,
+            end_time,
+            raw_text,
+            words_per_second,
+        )
+        segment_payload = {
+            "clip_id": index,
+            "start": start_time,
+            "end": end_time,
+            "subtitleStart": display_start,
+            "subtitleEnd": display_end,
+            "word_start": start_time,
+            "word_end": end_time,
+            "original_start": round_timestamp_value(float(sentence.get("start", start_time))),
+            "original_end": round_timestamp_value(float(sentence.get("end", end_time))),
+            "natural_start": start_time,
+            "natural_end": end_time,
+            "words_per_second": words_per_second,
+            "silenceAdjustment": 0.0,
+            "energyAdjustment": 0.0,
+            "startPadding": 0.0,
+            "endPadding": 0.0,
+            "raw_text": raw_text,
+            "text": raw_text,
+            "lines": [raw_text],
+            "readingSpeed": compute_reading_speed(raw_text, start_time, end_time),
+            "confidence": confidence,
+            "confidenceStatus": confidence_status,
+            "needsReview": confidence_status == "needs_review",
+            "auto_aligned": True,
+            "alignment_mode": normalize_alignment_mode(resolved_mode),
+            "alignment_method": "whisper_text_with_word_timing",
+            "forced_alignment_used": bool(alignment_metadata.get("used")),
+            "text_corrected": False,
+            "text_source": "whisper_segments",
+            "confidence_expanded": False,
+            "words": mapped_words,
+            "source_words": mapped_words,
+        }
+        aligned_segments.append(segment_payload)
 
     aligned_segments = [segment for segment in aligned_segments if segment.get("text", "") != ""]
+    print("=== FINAL SEGMENTS ===")
+    for segment in aligned_segments[:5]:
+        print(
+            round_timestamp_value(float(segment.get("start", 0.0))),
+            "->",
+            round_timestamp_value(float(segment.get("end", 0.0))),
+            "|",
+            segment.get("text", ""),
+        )
+    print("======================")
+
+    audio_duration = 0.0
+    try:
+        audio_duration = float(get_media_duration(audio))
+    except Exception as exc:
+        log(f"Audio duration check failed for observability: {exc}")
+        audio_duration = 0.0
+
+    log_pipeline_observability(
+        video_duration=media_duration,
+        audio_duration=audio_duration,
+        whisper_segments=source_segments,
+        aligned_words=source_words,
+        alignment_metadata=alignment_metadata,
+        sentence_groups=sentence_groups,
+        final_segments=aligned_segments,
+    )
+
     cache_payload = {
         "segments": aligned_segments,
         "transcript_words": display_words,
@@ -1424,6 +2034,10 @@ def sanitize_export_base_name(file_name_or_path):
 
 def clean_text(text):
     return (text or "").strip()
+
+
+def get_word_token(word):
+    return clean_text(word.get("word", "") or word.get("text", ""))
 
 
 def round_timestamp_value(value):
@@ -2933,7 +3547,7 @@ def try_force_align_words(audio_path, words, language_code):
         return normalized, {"enabled": True, "used": False, "method": "none"}
 
     try:
-        from faster_whisper import WhisperModel
+        import whisperx
     except ImportError:
         message = (
             "WhisperX is not installed, so the app is using Whisper word timestamps as a fallback. "
@@ -3105,6 +3719,232 @@ def build_aligned_segments(
         segments.append(segment_payload)
 
     return normalize_segments([segment for segment in segments if segment.get("text", "") != ""])
+
+
+def build_segments_from_sentence_groups(
+    sentence_groups,
+    source_words,
+    display_words,
+    media_duration,
+    alignment_metadata,
+    alignment_mode=ALIGNMENT_MODE,
+):
+    if not sentence_groups:
+        return []
+
+    segments = []
+    min_step = 1.0 / DEFAULT_AUDIO_SAMPLE_RATE
+    min_duration_seconds = 0.3
+    for index, sentence in enumerate(sentence_groups):
+        word_indices = [
+            int(word_index)
+            for word_index in (sentence.get("word_indices") or [])
+            if 0 <= int(word_index) < len(source_words)
+        ]
+        if not word_indices:
+            continue
+
+        clip_source_words = [source_words[word_index] for word_index in word_indices]
+        clip_display_words = [
+            display_words[word_index]
+            for word_index in word_indices
+            if 0 <= word_index < len(display_words)
+        ] or clip_source_words
+
+        if not clip_source_words:
+            continue
+
+        word_start = round_timestamp_value(float(clip_source_words[0]["start"]))
+        word_end = round_timestamp_value(float(clip_source_words[-1]["end"]))
+        raw_start = round_timestamp_value(float(sentence.get("start_time", word_start)))
+        raw_end = round_timestamp_value(float(sentence.get("end_time", word_end)))
+        new_start = round_timestamp_value(float(sentence.get("refined_start", raw_start)))
+        new_end = round_timestamp_value(float(sentence.get("refined_end", raw_end)))
+
+        new_start = round_timestamp_value(max(0.0, new_start))
+        new_end = round_timestamp_value(max(new_end, word_end))
+        new_end = round_timestamp_value(min(new_end, media_duration))
+
+        if new_start >= new_end or (new_end - new_start) < min_duration_seconds:
+            new_start = raw_start
+            new_end = raw_end
+
+        if new_start >= new_end or (new_end - new_start) < min_duration_seconds:
+            new_start = round_timestamp_value(max(0.0, raw_start))
+            new_end = round_timestamp_value(min(media_duration, max(raw_end, new_start + min_duration_seconds)))
+
+        if (new_end - new_start) > 0.1:
+            final_start = round_timestamp_value(max(0.0, new_start + CLIP_EDGE_TRIM_BUFFER_SECONDS))
+            final_end = round_timestamp_value(min(media_duration, new_end - CLIP_EDGE_TRIM_BUFFER_SECONDS))
+        else:
+            final_start = new_start
+            final_end = new_end
+
+        if final_end < word_end:
+            final_end = word_end
+        if final_start >= final_end or (final_end - final_start) < min_duration_seconds:
+            final_start = new_start
+            final_end = new_end
+        if final_start >= final_end:
+            final_end = round_timestamp_value(min(media_duration, final_start + min_duration_seconds))
+        if final_end <= final_start:
+            final_end = round_timestamp_value(min(media_duration, final_start + min_step))
+        if final_end <= final_start:
+            continue
+
+        raw_text = clean_whisper_translated_text(
+            sentence.get("text", "") or build_text_from_word_list(clip_display_words)
+        )
+        if not raw_text:
+            continue
+
+        confidence = average_word_confidence(clip_source_words) or average_word_confidence(clip_display_words)
+        confidence_status = get_confidence_status(confidence)
+        subtitle_lines = [raw_text] if raw_text else []
+        reading_speed = compute_reading_speed(raw_text, final_start, final_end)
+        words_per_second = get_words_per_second(clip_source_words)
+        display_start, display_end = compute_subtitle_display_timing(
+            final_start,
+            final_end,
+            raw_text,
+            words_per_second,
+        )
+
+        segment_payload = {
+            "clip_id": index,
+            "start": final_start,
+            "end": final_end,
+            "subtitleStart": display_start,
+            "subtitleEnd": display_end,
+            "word_start": word_start,
+            "word_end": word_end,
+            "original_start": raw_start,
+            "original_end": raw_end,
+            "natural_start": word_start,
+            "natural_end": new_end,
+            "words_per_second": words_per_second,
+            "silenceAdjustment": round_timestamp_value(max(new_end - word_end, 0.0)),
+            "energyAdjustment": 0.0,
+            "startPadding": 0.0,
+            "endPadding": 0.0,
+            "raw_text": raw_text,
+            "text": raw_text,
+            "lines": subtitle_lines,
+            "readingSpeed": reading_speed,
+            "confidence": confidence,
+            "confidenceStatus": confidence_status,
+            "needsReview": confidence_status == "needs_review",
+            "auto_aligned": True,
+            "alignment_mode": normalize_alignment_mode(alignment_mode),
+            "alignment_method": alignment_metadata.get("method", "word_sentences"),
+            "forced_alignment_used": bool(alignment_metadata.get("used")),
+            "text_corrected": False,
+            "text_source": "word_sentence_grouping",
+            "confidence_expanded": False,
+            "words": clip_display_words,
+            "source_words": clip_source_words,
+        }
+        segments.append(segment_payload)
+
+    for segment_index in range(len(segments) - 1):
+        current = segments[segment_index]
+        next_segment = segments[segment_index + 1]
+        if float(next_segment["start"]) < float(current["end"]):
+            current["end"] = round_timestamp_value(float(next_segment["start"]))
+            if float(current["end"]) <= float(current["start"]):
+                current["end"] = round_timestamp_value(
+                    min(media_duration, float(current["start"]) + min_step)
+                )
+
+    if segments:
+        segments[-1]["end"] = round_timestamp_value(media_duration)
+        segments[-1]["original_end"] = round_timestamp_value(media_duration)
+        segments[-1]["natural_end"] = round_timestamp_value(media_duration)
+        end = float(segments[-1]["end"])
+        start = float(segments[-1]["start"])
+        display_start, display_end = compute_subtitle_display_timing(
+            start,
+            end,
+            segments[-1].get("text", ""),
+            float(segments[-1].get("words_per_second") or 0.0),
+        )
+        segments[-1]["subtitleStart"] = display_start
+        segments[-1]["subtitleEnd"] = display_end
+
+    for segment in segments:
+        start = float(segment.get("start", 0.0))
+        end = float(segment.get("end", start))
+        display_start, display_end = compute_subtitle_display_timing(
+            start,
+            end,
+            segment.get("text", ""),
+            float(segment.get("words_per_second") or 0.0),
+        )
+        segment["subtitleStart"] = display_start
+        segment["subtitleEnd"] = display_end
+        segment["readingSpeed"] = compute_reading_speed(segment.get("text", ""), start, end)
+
+    print("=== DEBUG: SEGMENT BUILD ===")
+    for segment in segments[:5]:
+        print(
+            f"SEGMENT: {round_timestamp_value(float(segment.get('start', 0.0)))} "
+            f"-> {round_timestamp_value(float(segment.get('end', 0.0)))}"
+        )
+        print(f"TEXT: {segment.get('text', '')}")
+    print("================================")
+
+    for segment in segments[:5]:
+        print("---- CLIP CHECK ----")
+        print(f"TEXT: {segment.get('text', '')}")
+        segment_start = float(segment.get("start", 0.0))
+        segment_end = float(segment.get("end", segment_start))
+        print(
+            f"RANGE: {round_timestamp_value(segment_start)} "
+            f"-> {round_timestamp_value(segment_end)}"
+        )
+
+        clip_words = [
+            word for word in source_words
+            if segment_start <= float(word.get("start", 0.0)) <= segment_end
+        ]
+        print("WORDS IN CLIP:")
+        for word in clip_words:
+            print(get_word_token(word), round_timestamp_value(float(word.get("start", 0.0))))
+        print("---------------------")
+
+    if not USE_ALIGNMENT_DEBUG_MODE:
+        segments = enforce_continuity(segments, media_duration)
+    normalized = normalize_segments(segments)
+    validate_continuity(normalized)
+    return normalized
+
+
+def enforce_continuity(segments, media_duration=None, minimum_duration=0.3):
+    if not segments:
+        return segments
+
+    safe_min_duration = max(float(minimum_duration), 1.0 / DEFAULT_AUDIO_SAMPLE_RATE)
+    for index in range(1, len(segments)):
+        previous = segments[index - 1]
+        current = segments[index]
+
+        chained_start = round_timestamp_value(float(previous.get("end", 0.0)))
+        current["start"] = chained_start
+
+        current_end = round_timestamp_value(float(current.get("end", chained_start)))
+        if current["start"] >= current_end:
+            current_end = round_timestamp_value(float(current["start"]) + safe_min_duration)
+
+        if media_duration is not None:
+            current_end = round_timestamp_value(min(float(media_duration), current_end))
+            if current_end <= float(current["start"]):
+                current_end = round_timestamp_value(min(float(media_duration), float(current["start"]) + safe_min_duration))
+
+        current["end"] = current_end
+        current["start_ms"] = seconds_to_milliseconds(current["start"])
+        current["end_ms"] = seconds_to_milliseconds(current["end"])
+
+    return segments
 
 
 def log_alignment_debug_info(segments, silence_regions, energy_analysis):

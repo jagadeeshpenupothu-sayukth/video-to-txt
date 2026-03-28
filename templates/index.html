@@ -4670,15 +4670,6 @@ function clearModifiedClipTranscriptionTimer() {
 
 function scheduleModifiedClipTranscription() {
     clearModifiedClipTranscriptionTimer();
-
-    if (!videoPath || !hasModifiedTimelineClips()) {
-        return;
-    }
-
-    modifiedClipTranscribeTimer = window.setTimeout(() => {
-        modifiedClipTranscribeTimer = null;
-        updateModifiedClipTexts({ trigger: "auto" });
-    }, AUTO_TRANSCRIBE_DELAY_MS);
 }
 
 function markClipsModified(indices) {
@@ -4699,7 +4690,6 @@ function markClipsModified(indices) {
     });
 
     updateTimelineTextButtonUi();
-    scheduleModifiedClipTranscription();
     saveAppState();
 }
 
@@ -5892,15 +5882,17 @@ async function submitClipTimestampUpdate(index) {
                 return item;
             }
 
+            const updatedText = cleanTranscriptText(updated.text || item.text || "");
             const nextSegment = decorateSegmentForEnglishAudio({
                 ...item,
                 start: Number(updated.start),
                 end: Number(updated.end),
                 start_ms: Math.round(Number(updated.start) * 1000),
                 end_ms: Math.round(Number(updated.end) * 1000),
-                text: item.text || "",
-                translationSource: cleanTranscriptText(item.text || ""),
+                text: updatedText,
+                translationSource: updatedText,
                 transcriptUpdateError: "",
+                isModified: false,
             }, itemIndex);
             return nextSegment;
         });

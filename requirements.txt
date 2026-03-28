@@ -2,6 +2,7 @@ fastapi
 uvicorn
 python-multipart
 faster-whisper
+whisperx
 jinja2
 deep-translator
 
@@ -10,3 +11,4 @@ torchaudio==2.1.2
 transformers==4.38.2
 
 TTS
+setuptools<81
