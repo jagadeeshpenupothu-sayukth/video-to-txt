@@ -923,50 +923,43 @@
 
         .waveform-clip-segment .clip-bg {
             position: absolute;
-            inset: 0;
+            inset: 1px;
             z-index: 0;
-            opacity: 0.32;
-            border: 1px solid rgba(148, 163, 184, 0.18);
-            border-radius: 8px;
-            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
-            transition: background 0.16s ease, filter 0.16s ease, box-shadow 0.16s ease;
+            opacity: 0.42;
+            border: none;
+            border-radius: 9px;
+            box-shadow: none;
+            transition: background 0.16s ease, filter 0.16s ease, opacity 0.16s ease;
         }
 
         .waveform-clip-segment.variant-a .clip-bg {
             background: linear-gradient(
                 to right,
-                rgba(96, 165, 250, 0.12),
-                rgba(147, 197, 253, 0.1)
+                rgba(59, 130, 246, 0.34),
+                rgba(96, 165, 250, 0.28)
             );
         }
 
         .waveform-clip-segment.variant-b .clip-bg {
             background: linear-gradient(
                 to right,
-                rgba(110, 231, 183, 0.12),
-                rgba(167, 243, 208, 0.1)
+                rgba(249, 115, 22, 0.34),
+                rgba(251, 146, 60, 0.28)
             );
         }
 
         .waveform-clip-segment::before {
-            content: "";
-            position: absolute;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 0.75px;
-            background: #3b82f6;
-            opacity: 0.6;
-            z-index: 1;
+            content: none;
         }
 
         .waveform-clip-segment:hover .clip-bg {
-            filter: brightness(0.95);
+            filter: brightness(1.03);
         }
 
         .waveform-clip-segment.active .clip-bg {
-            border: 2px solid #3b82f6;
-            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 0 0 1px rgba(59, 130, 246, 0.14);
+            border: none;
+            box-shadow: none;
+            opacity: 0.54;
         }
 
         .waveform-boundary-handle {
@@ -1006,15 +999,6 @@
 
         #waveform canvas {
             filter: contrast(1.08) brightness(1.02);
-        }
-
-        .waveform-peaks-canvas {
-            position: absolute;
-            inset: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 1;
-            pointer-events: none;
         }
 
         #waveform.empty {
@@ -1443,16 +1427,16 @@
         .timeline-block.variant-a {
             background: linear-gradient(
                 to right,
-                rgba(59, 130, 246, 0.25),
-                rgba(59, 130, 246, 0.18)
+                rgba(59, 130, 246, 0.34),
+                rgba(59, 130, 246, 0.24)
             );
         }
 
         .timeline-block.variant-b {
             background: linear-gradient(
                 to right,
-                rgba(34, 197, 94, 0.25),
-                rgba(34, 197, 94, 0.18)
+                rgba(249, 115, 22, 0.34),
+                rgba(249, 115, 22, 0.24)
             );
         }
 
@@ -3407,8 +3391,6 @@ let activeEnglishClipIndex = null;
 let activeEnglishClipAudio = null;
 let selectedVoiceStyle = "tutorial";
 let waveform = null;
-let waveformPeaks = [];
-const waveformPeaksCache = new Map();
 let videoAudioContext = null;
 let videoAudioSourceNode = null;
 let videoAudioGainNode = null;
@@ -3433,8 +3415,6 @@ let lastWaveformActiveClipIndex = null;
 let isWaveformZooming = false;
 let timelineRenderRaf = null;
 let timelineRenderToken = 0;
-const WAVEFORM_CACHE_STORAGE_KEY = "videoTextEditor.waveformPeaks";
-const MAX_CACHED_WAVEFORM_PEAKS = 4000;
 const EDIT_ACTIVITY_IDLE_MS = 90000;
 const SEGMENT_STOP_EPSILON = 0.01;
 const FRAME_MARGIN = 0.12;
@@ -4190,137 +4170,9 @@ function getWaveformTimelineWidth(duration = Number(videoPlayer?.duration || get
     return Math.max(viewportWidth, Math.round(duration * getWaveformPixelsPerSecond()));
 }
 
-function getWaveformCacheKey() {
-    return String(videoPath || videoPlayer?.currentSrc || videoPlayer?.src || "");
-}
-
-function normalizeWaveformPeaksForCache(peaks) {
-    if (!Array.isArray(peaks) || !peaks.length) {
-        return [];
-    }
-
-    if (peaks.length <= MAX_CACHED_WAVEFORM_PEAKS) {
-        return peaks.map((value) => Math.max(-1, Math.min(1, Number(value) || 0)));
-    }
-
-    const normalized = [];
-    const step = peaks.length / MAX_CACHED_WAVEFORM_PEAKS;
-    for (let index = 0; index < MAX_CACHED_WAVEFORM_PEAKS; index += 1) {
-        const sourceIndex = Math.min(peaks.length - 1, Math.floor(index * step));
-        normalized.push(Math.max(-1, Math.min(1, Number(peaks[sourceIndex]) || 0)));
-    }
-    return normalized;
-}
-
-function readWaveformPeaksCache(cacheKey) {
-    if (!cacheKey) {
-        return [];
-    }
-
-    if (waveformPeaksCache.has(cacheKey)) {
-        return waveformPeaksCache.get(cacheKey) || [];
-    }
-
-    try {
-        const rawCache = window.localStorage.getItem(WAVEFORM_CACHE_STORAGE_KEY);
-        const parsedCache = rawCache ? JSON.parse(rawCache) : {};
-        const cachedPeaks = Array.isArray(parsedCache?.[cacheKey]) ? parsedCache[cacheKey] : [];
-        waveformPeaksCache.set(cacheKey, cachedPeaks);
-        return cachedPeaks;
-    } catch (error) {
-        console.warn("Unable to read waveform cache", error);
-        return [];
-    }
-}
-
-function writeWaveformPeaksCache(cacheKey, peaks) {
-    if (!cacheKey) {
-        return;
-    }
-
-    const normalizedPeaks = normalizeWaveformPeaksForCache(peaks);
-    waveformPeaksCache.set(cacheKey, normalizedPeaks);
-
-    try {
-        const rawCache = window.localStorage.getItem(WAVEFORM_CACHE_STORAGE_KEY);
-        const parsedCache = rawCache ? JSON.parse(rawCache) : {};
-        parsedCache[cacheKey] = normalizedPeaks;
-        window.localStorage.setItem(WAVEFORM_CACHE_STORAGE_KEY, JSON.stringify(parsedCache));
-    } catch (error) {
-        console.warn("Unable to write waveform cache", error);
-    }
-}
-
-function ensureWaveformPeaksCanvas() {
-    const container = document.getElementById("waveform");
-    if (!container) {
-        return null;
-    }
-
-    let canvas = document.getElementById("waveformPeaksCanvas");
-    if (!canvas) {
-        canvas = document.createElement("canvas");
-        canvas.id = "waveformPeaksCanvas";
-        canvas.className = "waveform-peaks-canvas";
-        container.appendChild(canvas);
-    }
-
-    return canvas;
-}
-
-function renderWaveformPeakCanvas() {
-    const canvas = ensureWaveformPeaksCanvas();
-    const content = document.getElementById("waveformContent");
-    const waveformContainer = document.getElementById("waveform");
-    if (!canvas || !content || !waveformContainer) {
-        return;
-    }
-
-    const duration = Number(videoPlayer?.duration || getTimelineDuration() || 0);
-    const contentWidth = Math.max(1, getWaveformTimelineWidth(duration));
-    const cssHeight = Math.max(24, Number(waveformContainer.clientHeight || 74));
-    const dpr = Math.max(window.devicePixelRatio || 1, 1);
-    canvas.style.width = `${contentWidth}px`;
-    canvas.style.height = `${cssHeight}px`;
-    canvas.width = Math.max(1, Math.round(contentWidth * dpr));
-    canvas.height = Math.max(1, Math.round(cssHeight * dpr));
-
-    const context = canvas.getContext("2d");
-    if (!context) {
-        return;
-    }
-
-    context.setTransform(1, 0, 0, 1, 0, 0);
-    context.clearRect(0, 0, canvas.width, canvas.height);
-
-    if (!Array.isArray(waveformPeaks) || !waveformPeaks.length) {
-        return;
-    }
-
-    context.scale(dpr, dpr);
-    context.strokeStyle = "#9aa0a6";
-    context.lineWidth = 1;
-
-    const midY = cssHeight / 2;
-    const sampleCount = Math.min(waveformPeaks.length, Math.max(64, Math.floor(contentWidth / 2)));
-    const step = waveformPeaks.length / sampleCount;
-
-    for (let index = 0; index < sampleCount; index += 1) {
-        const sourceIndex = Math.min(waveformPeaks.length - 1, Math.floor(index * step));
-        const amplitude = Math.max(0.02, Math.abs(Number(waveformPeaks[sourceIndex]) || 0));
-        const x = (index / Math.max(sampleCount - 1, 1)) * contentWidth;
-        const halfHeight = Math.max(1, amplitude * (cssHeight * 0.42));
-        context.beginPath();
-        context.moveTo(x, midY - halfHeight);
-        context.lineTo(x, midY + halfHeight);
-        context.stroke();
-    }
-}
-
 function refreshWaveform() {
     const container = document.getElementById("waveform");
     if (!waveform || !container || container.offsetWidth === 0) {
-        renderWaveformPeakCanvas();
         return;
     }
 
@@ -4339,7 +4191,6 @@ function refreshWaveform() {
             console.warn("Unable to refresh waveform", error);
         } finally {
             isWaveformRendering = false;
-            renderWaveformPeakCanvas();
         }
     });
 }
@@ -4507,7 +4358,6 @@ function applyWaveformScale(options = {}) {
             if (keepCenteredTime !== null && !isWaveformZooming) {
                 keepWaveformTimeInView(keepCenteredTime, { center: true, force: true });
             }
-            renderWaveformPeakCanvas();
             scheduleWaveformClipSegmentsRender();
             requestWaveformUiUpdate(true);
         });
@@ -7595,47 +7445,9 @@ function getCustomPlayerTimeFromPointer(event) {
     return ratio * duration;
 }
 
-function snapToPeak(time) {
-    const duration = Number(videoPlayer?.duration || 0);
-    if (!duration || !waveformPeaks.length) {
-        return time;
-    }
-
-    const targetIndex = Math.floor((time / duration) * waveformPeaks.length);
-    return (Math.min(Math.max(targetIndex, 0), waveformPeaks.length - 1) / Math.max(waveformPeaks.length - 1, 1)) * duration;
-}
-
 function getSnappedTime(time) {
     const exactTime = roundToMillisecond(time);
-    const peakTime = roundToMillisecond(snapToNearestWaveformPeak(time));
-    const peakThreshold = Math.max(0.006, Math.min(Number(selectedVideoDurationSeconds || videoPlayer?.duration || 0) / 2000, 0.02));
-
-    if (Math.abs(time - peakTime) <= peakThreshold) {
-        return peakTime;
-    }
-
     return roundToMillisecond(snapToGrid(exactTime));
-}
-
-function snapToNearestWaveformPeak(targetTime) {
-    const duration = Number(videoPlayer?.duration || 0);
-    if (!duration || !waveformPeaks.length) {
-        return targetTime;
-    }
-
-    const targetIndex = Math.round((targetTime / duration) * (waveformPeaks.length - 1));
-    let bestIndex = targetIndex;
-    let bestValue = -1;
-
-    for (let index = Math.max(0, targetIndex - 3); index <= Math.min(waveformPeaks.length - 1, targetIndex + 3); index += 1) {
-        const amplitude = Math.abs(Number(waveformPeaks[index] || 0));
-        if (amplitude > bestValue) {
-            bestValue = amplitude;
-            bestIndex = index;
-        }
-    }
-
-    return (bestIndex / Math.max(waveformPeaks.length - 1, 1)) * duration;
 }
 
 function startCustomPlayerDrag(event) {
@@ -7695,9 +7507,9 @@ function handleWaveformClickSeek(event) {
 
 function getWaveformClipTint(index, isActive = false) {
     if (isActive) {
-        return index % 2 === 0 ? "#D2EAFD" : "#D7EFD9";
+        return index % 2 === 0 ? "#93C5FD" : "#FDBA74";
     }
-    return index % 2 === 0 ? "#E3F2FD" : "#E8F5E9";
+    return index % 2 === 0 ? "#BFDBFE" : "#FED7AA";
 }
 
 function getWaveformGridSteps(duration, containerWidth) {
@@ -7927,11 +7739,9 @@ function destroyWaveform() {
         waveform.destroy();
         waveform = null;
     }
-    waveformPeaks = [];
     const peaksCanvas = document.getElementById("waveformPeaksCanvas");
     if (peaksCanvas) {
-        const context = peaksCanvas.getContext("2d");
-        context?.clearRect(0, 0, peaksCanvas.width, peaksCanvas.height);
+        peaksCanvas.remove();
     }
 }
 
@@ -7943,6 +7753,7 @@ function initializeWaveform() {
     }
 
     destroyWaveform();
+    console.info("[waveform] initializeWaveform called");
 
     if (!sourceUrl || !window.WaveSurfer) {
         container.classList.add("empty");
@@ -7952,13 +7763,6 @@ function initializeWaveform() {
 
     container.classList.remove("empty");
     container.textContent = "";
-    ensureWaveformPeaksCanvas();
-
-    const cachedPeaks = readWaveformPeaksCache(getWaveformCacheKey());
-    if (cachedPeaks.length) {
-        waveformPeaks = cachedPeaks;
-        renderWaveformPeakCanvas();
-    }
 
     waveform = WaveSurfer.create({
         container,
@@ -7977,21 +7781,15 @@ function initializeWaveform() {
     });
 
     waveform.on("ready", () => {
-        if (typeof waveform.exportPeaks === "function") {
-            const peakResolution = Math.max(2000, Math.round((container.clientWidth || 0) * 4));
-            const peaks = waveform.exportPeaks({ channels: 1, maxLength: peakResolution });
-            waveformPeaks = Array.isArray(peaks?.[0]) ? peaks[0] : (Array.isArray(peaks) ? peaks : []);
-            if (waveformPeaks.length) {
-                writeWaveformPeaksCache(getWaveformCacheKey(), waveformPeaks);
-            }
-        }
         refreshWaveform();
-        renderWaveformPeakCanvas();
         applyWaveformScale({
             keepCenteredTime: Number(videoPlayer?.currentTime || 0),
         });
         scheduleWaveformClipSegmentsRender({ immediate: true });
         requestWaveformUiUpdate(true);
+        console.info("[waveform] WaveSurfer ready", {
+            canvasCount: container.querySelectorAll("canvas").length,
+        });
     });
 
     waveform.on("interaction", (time) => {

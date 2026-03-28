@@ -35,7 +35,7 @@ TEMP_DIR = "temp"
 DEFAULT_FPS = 30.0
 DEFAULT_AUDIO_SAMPLE_RATE = 16000
 CLIP_PADDING_SECONDS = 0.08
-TIMESTAMP_PRECISION_DECIMALS = 3
+TIMESTAMP_PRECISION_DECIMALS = 6
 WHISPER_MODEL_NAME = "large-v3"
 CLIP_TEXT_MODEL_NAME = os.getenv("CLIP_TEXT_MODEL_NAME", "tiny").strip() or "tiny"
 CLIP_TEXT_RETRY_EXTENSION_SECONDS = 0.3
@@ -56,6 +56,7 @@ WORD_GAP_PUNCTUATION_SPLIT_SECONDS = 0.16
 SENTENCE_PAUSE_SPLIT_SECONDS = 0.6
 SILENCE_SNAP_THRESHOLD_SECONDS = 0.5
 START_SILENCE_SNAP_THRESHOLD_SECONDS = 0.7
+SEGMENT_ASSERT_TOLERANCE_SECONDS = 0.04
 CLIP_EDGE_TRIM_BUFFER_SECONDS = 0.05
 MIN_CLIP_DURATION_SECONDS = 0.8
 MERGE_SHORT_CLIP_SECONDS = 1.0
@@ -70,6 +71,15 @@ FORCED_ALIGNMENT_ENABLED = True
 LOCAL_TEXT_CORRECTION_ENABLED = os.getenv("ENABLE_LOCAL_TEXT_CORRECTION", "0").strip().lower() in {"1", "true", "yes", "on"}
 LOCAL_TEXT_CORRECTION_MODEL = os.getenv("LOCAL_TEXT_CORRECTION_MODEL", "mistral:7b").strip() or "mistral:7b"
 ENERGY_WINDOW_MS = 20
+BOUNDARY_ENERGY_WINDOW_MS = 10
+BOUNDARY_ENERGY_HOP_MS = 5
+BOUNDARY_ENERGY_THRESHOLD_RATIO = 0.1
+BOUNDARY_REFINEMENT_SEARCH_SECONDS = 0.1
+BOUNDARY_REFINEMENT_START_FORWARD_SECONDS = 0.05
+BOUNDARY_REFINEMENT_END_BACKWARD_SECONDS = 0.05
+BOUNDARY_REFINEMENT_MAX_SHIFT_SECONDS = 0.12
+BOUNDARY_REFINEMENT_START_PADDING_SECONDS = 0.02
+BOUNDARY_REFINEMENT_END_PADDING_SECONDS = 0.03
 ENERGY_THRESHOLD_RATIO = 0.3
 ENERGY_MIN_REGION_SECONDS = 0.08
 ENERGY_RISE_RATIO = 0.2
@@ -519,6 +529,39 @@ def get_media_duration(media_path):
     return float(result.stdout.strip() or 0.0)
 
 
+def get_media_stream_start_times(media_path):
+    result = subprocess.run(
+        [
+            "ffprobe",
+            "-v", "error",
+            "-show_streams",
+            "-of", "json",
+            media_path,
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    payload = json.loads(result.stdout or "{}")
+    video_start = 0.0
+    audio_start = 0.0
+    for stream in payload.get("streams", []):
+        stream_type = stream.get("codec_type")
+        try:
+            start_time = float(stream.get("start_time", 0.0) or 0.0)
+        except (TypeError, ValueError):
+            start_time = 0.0
+        if stream_type == "video" and video_start == 0.0:
+            video_start = start_time
+        elif stream_type == "audio" and audio_start == 0.0:
+            audio_start = start_time
+    return {
+        "video_start": video_start,
+        "audio_start": audio_start,
+        "offset_seconds": audio_start - video_start,
+    }
+
+
 def detect_scene_cuts(video_path, threshold=SCENE_DETECTION_THRESHOLD):
     if not ENABLE_SCENE_DETECTION:
         return []
@@ -593,18 +636,42 @@ def format_timestamp_for_ffmpeg(milliseconds):
     return f"{milliseconds_to_seconds(milliseconds):.{TIMESTAMP_PRECISION_DECIMALS}f}"
 
 
+def format_seconds_for_ffmpeg(seconds):
+    return f"{max(float(seconds), 0.0):.{TIMESTAMP_PRECISION_DECIMALS}f}"
+
+
 def normalize_segments(segments, sample_rate=DEFAULT_AUDIO_SAMPLE_RATE):
+    del sample_rate
     normalized = []
-    previous_end_ms = None
 
     for index, segment in enumerate(segments):
-        start = snap_to_audio_frame(float(segment["start"]), sample_rate)
-        end = snap_to_audio_frame(float(segment["end"]), sample_rate)
+        segment_payload = dict(segment or {})
+        start_raw = segment_payload.get("start")
+        end_raw = segment_payload.get("end")
+
+        # Defensive reconstruction for segments created in intermediate stages.
+        if start_raw is None or end_raw is None:
+            segment_words = list(segment_payload.get("words") or segment_payload.get("source_words") or [])
+            if segment_words:
+                start_raw = segment_words[0].get("start", start_raw)
+                end_raw = segment_words[-1].get("end", end_raw)
+            else:
+                if start_raw is None:
+                    start_raw = segment_payload.get("word_start")
+                if end_raw is None:
+                    end_raw = segment_payload.get("word_end")
+
+        try:
+            start = max(float(start_raw), 0.0)
+            end = max(float(end_raw), start)
+        except (TypeError, ValueError):
+            log(
+                f"Invalid segment skipped during normalize at index={index}: "
+                f"reason=missing_or_non_numeric_timestamps segment={segment_payload!r}"
+            )
+            continue
         start_ms = seconds_to_milliseconds(start)
         end_ms = seconds_to_milliseconds(end)
-
-        if previous_end_ms is not None and start_ms < previous_end_ms:
-            start_ms = previous_end_ms
 
         if end_ms <= start_ms:
             log(
@@ -616,33 +683,34 @@ def normalize_segments(segments, sample_rate=DEFAULT_AUDIO_SAMPLE_RATE):
             continue
 
         normalized_segment = {
-            "clip_id": int(segment.get("clip_id", index)),
-            "start": milliseconds_to_seconds(start_ms),
-            "end": milliseconds_to_seconds(end_ms),
+            "clip_id": int(segment_payload.get("clip_id", index)),
+            "start": round_timestamp_value(start),
+            "end": round_timestamp_value(end),
             "start_ms": start_ms,
             "end_ms": end_ms,
-            "text": segment.get("text", "")
+            "text": segment_payload.get("text", "")
         }
-        for key, value in segment.items():
+        for key, value in segment_payload.items():
             if key not in normalized_segment:
                 normalized_segment[key] = value
 
         normalized.append(normalized_segment)
-        previous_end_ms = end_ms
 
     return normalized
 
 
 def normalize_words(words, sample_rate=DEFAULT_AUDIO_SAMPLE_RATE):
+    del sample_rate
     normalized = []
+    min_step = 1.0 / DEFAULT_AUDIO_SAMPLE_RATE
 
     for word in words:
         text = (word.get("text") or "").strip()
         if not text:
             continue
 
-        start = snap_to_audio_frame(float(word["start"]), sample_rate)
-        end = snap_to_audio_frame(float(word["end"]), sample_rate)
+        start = max(float(word["start"]), 0.0)
+        end = max(float(word["end"]), start + min_step)
         start_ms = seconds_to_milliseconds(start)
         end_ms = seconds_to_milliseconds(end)
 
@@ -651,8 +719,8 @@ def normalize_words(words, sample_rate=DEFAULT_AUDIO_SAMPLE_RATE):
 
         normalized_word = {
             "text": text,
-            "start": milliseconds_to_seconds(start_ms),
-            "end": milliseconds_to_seconds(end_ms),
+            "start": round_timestamp_value(start),
+            "end": round_timestamp_value(end),
             "start_ms": start_ms,
             "end_ms": end_ms,
         }
@@ -939,6 +1007,800 @@ def detect_energy_regions(
     }
 
 
+def refine_segment_boundaries_with_energy(audio_path, segments):
+    if not segments:
+        return []
+
+    safe_segments = [dict(segment) for segment in normalize_segments(segments)]
+    if not safe_segments:
+        return []
+
+    try:
+        with wave.open(audio_path, "rb") as wav_file:
+            sample_rate = wav_file.getframerate()
+            sample_width = wav_file.getsampwidth()
+            channels = wav_file.getnchannels()
+            total_frames = wav_file.getnframes()
+            audio_duration = total_frames / max(sample_rate, 1)
+
+            window_frames = max(int(sample_rate * (BOUNDARY_ENERGY_WINDOW_MS / 1000.0)), 1)
+            hop_frames = max(int(sample_rate * (BOUNDARY_ENERGY_HOP_MS / 1000.0)), 1)
+            frame_index = 0
+            windows = []
+
+            while frame_index < total_frames:
+                wav_file.setpos(frame_index)
+                raw_frames = wav_file.readframes(window_frames)
+                if not raw_frames:
+                    break
+                if channels > 1:
+                    raw_frames = audioop.tomono(raw_frames, sample_width, 0.5, 0.5)
+                rms = float(audioop.rms(raw_frames, sample_width))
+                center_time = (frame_index + (window_frames / 2.0)) / max(sample_rate, 1)
+                windows.append({
+                    "time": round_timestamp_value(center_time),
+                    "rms": rms,
+                })
+                frame_index += hop_frames
+    except (wave.Error, OSError) as exc:
+        log(f"Energy boundary refinement skipped (audio read failed): {exc}")
+        return safe_segments
+
+    if not windows:
+        return safe_segments
+
+    mean_rms = sum(window["rms"] for window in windows) / len(windows)
+    silence_threshold = mean_rms * BOUNDARY_ENERGY_THRESHOLD_RATIO
+    min_step = 1.0 / DEFAULT_AUDIO_SAMPLE_RATE
+
+    def select_windows(left, right):
+        return [
+            window for window in windows
+            if float(left) <= float(window["time"]) <= float(right)
+        ]
+
+    refined = []
+    for index, segment in enumerate(safe_segments):
+        original_start = float(segment.get("start", 0.0))
+        original_end = float(segment.get("end", original_start))
+        start_search_left = max(0.0, original_start - BOUNDARY_REFINEMENT_SEARCH_SECONDS)
+        start_search_right = min(audio_duration, original_start + BOUNDARY_REFINEMENT_START_FORWARD_SECONDS)
+        end_search_left = max(0.0, original_end - BOUNDARY_REFINEMENT_END_BACKWARD_SECONDS)
+        end_search_right = min(audio_duration, original_end + BOUNDARY_REFINEMENT_SEARCH_SECONDS)
+
+        start_windows = select_windows(start_search_left, start_search_right)
+        end_windows = select_windows(end_search_left, end_search_right)
+        adjusted_start = original_start
+        adjusted_end = original_end
+
+        if start_windows:
+            speech_index = next(
+                (i for i, window in enumerate(start_windows) if float(window["rms"]) >= silence_threshold),
+                None,
+            )
+            if speech_index is not None and speech_index > 0:
+                silent_before_speech = [
+                    window for window in start_windows[:speech_index]
+                    if float(window["rms"]) < silence_threshold
+                ]
+                if silent_before_speech:
+                    adjusted_start = float(silent_before_speech[-1]["time"])
+
+        if end_windows:
+            speech_indices = [
+                i for i, window in enumerate(end_windows)
+                if float(window["rms"]) >= silence_threshold
+            ]
+            if speech_indices:
+                last_speech_index = speech_indices[-1]
+                silent_after_speech = [
+                    window for window in end_windows[last_speech_index + 1:]
+                    if float(window["rms"]) < silence_threshold
+                ]
+                if silent_after_speech:
+                    adjusted_end = float(silent_after_speech[0]["time"])
+
+        adjusted_start = max(0.0, adjusted_start - BOUNDARY_REFINEMENT_START_PADDING_SECONDS)
+        adjusted_end = min(audio_duration, adjusted_end + BOUNDARY_REFINEMENT_END_PADDING_SECONDS)
+
+        if abs(adjusted_start - original_start) > BOUNDARY_REFINEMENT_MAX_SHIFT_SECONDS:
+            adjusted_start = original_start
+        if abs(adjusted_end - original_end) > BOUNDARY_REFINEMENT_MAX_SHIFT_SECONDS:
+            adjusted_end = original_end
+
+        if refined:
+            previous_end = float(refined[-1]["end"])
+            adjusted_start = max(adjusted_start, previous_end + min_step)
+
+        next_original_start = None
+        if index + 1 < len(safe_segments):
+            next_original_start = float(safe_segments[index + 1].get("start", adjusted_end))
+            adjusted_end = min(adjusted_end, next_original_start - min_step)
+
+        if adjusted_end <= adjusted_start:
+            adjusted_start = original_start
+            adjusted_end = original_end
+            if refined:
+                adjusted_start = max(adjusted_start, float(refined[-1]["end"]) + min_step)
+            if next_original_start is not None:
+                adjusted_end = min(adjusted_end, next_original_start - min_step)
+
+        if adjusted_end <= adjusted_start:
+            adjusted_end = adjusted_start + min_step
+
+        adjusted_start = round_timestamp_value(adjusted_start)
+        adjusted_end = round_timestamp_value(adjusted_end)
+
+        log(
+            "Energy refine clip "
+            f"{get_clip_number(segment.get('clip_id', index))}: "
+            f"original=({format_seconds_for_ffmpeg(original_start)}, {format_seconds_for_ffmpeg(original_end)}) "
+            f"adjusted=({format_seconds_for_ffmpeg(adjusted_start)}, {format_seconds_for_ffmpeg(adjusted_end)}) "
+            f"delta=({format_seconds_for_ffmpeg(adjusted_start - original_start)}, {format_seconds_for_ffmpeg(adjusted_end - original_end)})"
+        )
+
+        updated_segment = dict(segment)
+        updated_segment["start"] = adjusted_start
+        updated_segment["end"] = adjusted_end
+        updated_segment["energy_refined"] = True
+        refined.append(updated_segment)
+
+    return normalize_segments(refined)
+
+
+def validate_and_repair_segments(segments, words=None, media_duration=None, stage_label="segment_validation"):
+    repaired = []
+    safe_words = list(words or [])
+    media_limit = float(media_duration) if media_duration is not None else None
+
+    for index, raw_segment in enumerate(segments or []):
+        segment = dict(raw_segment or {})
+        reason = None
+        word_indices = [
+            int(word_index)
+            for word_index in (segment.get("word_indices") or [])
+            if 0 <= int(word_index) < len(safe_words)
+        ]
+        segment_words = list(segment.get("words") or segment.get("source_words") or [])
+
+        start = segment.get("start")
+        end = segment.get("end")
+
+        if (start is None or end is None) and word_indices and safe_words:
+            first_word = safe_words[word_indices[0]]
+            last_word = safe_words[word_indices[-1]]
+            start = first_word.get("start", start)
+            end = last_word.get("end", end)
+
+        if start is None or end is None:
+            if segment_words:
+                start = segment_words[0].get("start", start)
+                end = segment_words[-1].get("end", end)
+            else:
+                start = segment.get("word_start", start)
+                end = segment.get("word_end", end)
+
+        try:
+            start_value = max(float(start), 0.0)
+            end_value = float(end)
+        except (TypeError, ValueError):
+            reason = "missing_or_non_numeric_start_end"
+            log(
+                f"{stage_label}: invalid segment index={index} reason={reason} segment={segment!r}"
+            )
+            continue
+
+        if media_limit is not None and media_limit > 0.0:
+            start_value = min(max(start_value, 0.0), media_limit)
+            end_value = min(max(end_value, 0.0), media_limit)
+
+        if end_value <= start_value:
+            reason = "start_greater_or_equal_end"
+            log(
+                f"{stage_label}: invalid segment index={index} reason={reason} "
+                f"start={start_value} end={end_value} segment={segment!r}"
+            )
+            continue
+
+        segment["start"] = round_timestamp_value(start_value)
+        segment["end"] = round_timestamp_value(end_value)
+        if word_indices:
+            segment["word_indices"] = word_indices
+        repaired.append(segment)
+
+    return repaired
+
+
+def enforce_strict_timeline_continuity(segments, media_duration=None, stage_label="timeline_continuity"):
+    if not segments:
+        return []
+
+    ordered = [dict(segment) for segment in normalize_segments(segments)]
+    if not ordered:
+        return []
+
+    ordered.sort(key=lambda item: (float(item.get("start", 0.0)), float(item.get("end", 0.0))))
+    min_step = 1.0 / DEFAULT_AUDIO_SAMPLE_RATE
+    duration_limit = float(media_duration) if media_duration is not None else None
+
+    fixed = []
+    previous_end = 0.0
+    for index, segment in enumerate(ordered):
+        start = max(float(segment.get("start", 0.0)), 0.0)
+        end = max(float(segment.get("end", start)), start)
+
+        if start < previous_end:
+            log(
+                f"{stage_label}: overlap fixed at index={index} "
+                f"clip_id={segment.get('clip_id')} old_start={start:.6f} "
+                f"new_start={previous_end:.6f} previous_end={previous_end:.6f}"
+            )
+            start = previous_end
+
+        if end <= start:
+            proposed_end = start + min_step
+            if duration_limit is not None:
+                proposed_end = min(proposed_end, duration_limit)
+            if proposed_end <= start:
+                log(
+                    f"{stage_label}: skipping segment index={index} clip_id={segment.get('clip_id')} "
+                    f"reason=non_positive_duration_after_continuity_adjustment "
+                    f"start={start:.6f} end={end:.6f}"
+                )
+                continue
+            end = proposed_end
+
+        if duration_limit is not None:
+            start = min(start, duration_limit)
+            end = min(end, duration_limit)
+            if end <= start:
+                log(
+                    f"{stage_label}: skipping segment index={index} clip_id={segment.get('clip_id')} "
+                    f"reason=clamped_to_media_end start={start:.6f} end={end:.6f}"
+                )
+                continue
+
+        segment["start"] = round_timestamp_value(start)
+        segment["end"] = round_timestamp_value(end)
+        fixed.append(segment)
+        previous_end = float(segment["end"])
+
+    for index, segment in enumerate(fixed):
+        segment["clip_id"] = index
+
+    return normalize_segments(fixed)
+
+
+def enforce_full_word_coverage(segments, words, media_duration):
+    if not segments:
+        return []
+
+    safe_words = list(words or [])
+    if not safe_words:
+        return normalize_segments(segments)
+
+    validated_segments = validate_and_repair_segments(
+        segments,
+        words=safe_words,
+        media_duration=media_duration,
+        stage_label="enforce_full_word_coverage_precheck",
+    )
+    normalized_segments = [dict(segment) for segment in normalize_segments(validated_segments)]
+    min_step = 1.0 / DEFAULT_AUDIO_SAMPLE_RATE
+    spoken_word_total = len(safe_words)
+    word_to_segment = [-1] * spoken_word_total
+    reconciled_segments = []
+
+    for segment in normalized_segments:
+        raw_indices = [
+            int(word_index)
+            for word_index in (segment.get("word_indices") or [])
+            if 0 <= int(word_index) < spoken_word_total
+        ]
+
+        if not raw_indices:
+            start = float(segment.get("start", 0.0))
+            end = float(segment.get("end", start))
+            for word_index, word in enumerate(safe_words):
+                midpoint = (float(word.get("start", 0.0)) + float(word.get("end", 0.0))) / 2.0
+                if start <= midpoint < end:
+                    raw_indices.append(word_index)
+
+        unique_indices = []
+        for word_index in sorted(set(raw_indices)):
+            if word_to_segment[word_index] == -1:
+                word_to_segment[word_index] = len(reconciled_segments)
+                unique_indices.append(word_index)
+
+        if not unique_indices:
+            continue
+
+        updated = dict(segment)
+        updated["word_indices"] = unique_indices
+        reconciled_segments.append(updated)
+
+    # Any unassigned words become dedicated continuity segments so no speech is lost.
+    missing_indices = [index for index, owner in enumerate(word_to_segment) if owner == -1]
+    if missing_indices:
+        runs = []
+        current_run = [missing_indices[0]]
+        for index in missing_indices[1:]:
+            if index == current_run[-1] + 1:
+                current_run.append(index)
+            else:
+                runs.append(current_run)
+                current_run = [index]
+        runs.append(current_run)
+
+        for run in runs:
+            run_words = [safe_words[index] for index in run]
+            fallback_text = build_preserved_text_from_words(run_words) or build_text_from_word_list(run_words)
+            reconciled_segments.append({
+                "clip_id": len(reconciled_segments),
+                "word_indices": list(run),
+                "words": run_words,
+                "source_words": run_words,
+                "text": fallback_text or " ",
+                "raw_text": fallback_text or " ",
+                "text_source": "coverage_recovery",
+                "alignment_method": "coverage_recovery",
+                "alignment_mode": ALIGNMENT_MODE,
+                "forced_alignment_used": False,
+                "auto_aligned": True,
+            })
+
+    normalized_segments = [
+        segment for segment in reconciled_segments
+        if segment.get("word_indices")
+    ]
+    if not normalized_segments:
+        return []
+
+    normalized_segments.sort(key=lambda item: int(item["word_indices"][0]))
+    covered_indices = []
+    for index, segment in enumerate(normalized_segments):
+        covered_indices.extend(int(word_index) for word_index in segment["word_indices"])
+        segment["clip_id"] = int(segment.get("clip_id", index))
+
+    # Build continuous segment chain from sequential words. This avoids large uncovered gaps.
+    first_segment = normalized_segments[0]
+    first_word_start = float(safe_words[first_segment["word_indices"][0]].get("start", 0.0))
+    first_segment["start"] = round_timestamp_value(max(0.0, min(float(first_segment.get("start", first_word_start)), first_word_start)))
+
+    for index in range(len(normalized_segments) - 1):
+        current = normalized_segments[index]
+        next_segment = normalized_segments[index + 1]
+        current_last_word = safe_words[int(current["word_indices"][-1])]
+        next_first_word = safe_words[int(next_segment["word_indices"][0])]
+        current_word_end = float(current_last_word.get("end", current.get("end", 0.0)))
+        next_word_start = float(next_first_word.get("start", next_segment.get("start", current_word_end)))
+
+        # Keep continuity anchored to neighboring word timings, not prior adjusted clip edges.
+        boundary_hint = (current_word_end + next_word_start) / 2.0
+        boundary = min(max(boundary_hint, current_word_end), next_word_start)
+        boundary = round_timestamp_value(max(boundary, current_word_end))
+
+        current["end"] = boundary
+        next_segment["start"] = boundary
+
+    last_segment = normalized_segments[-1]
+    last_word_end = float(safe_words[last_segment["word_indices"][-1]].get("end", 0.0))
+    if float(media_duration) > 0.0:
+        last_segment["end"] = round_timestamp_value(float(media_duration))
+    else:
+        last_segment["end"] = round_timestamp_value(max(float(last_segment.get("end", last_word_end)), last_word_end))
+
+    for segment in normalized_segments:
+        start = float(segment.get("start", 0.0))
+        end = float(segment.get("end", start))
+        word_indices = [int(word_index) for word_index in segment.get("word_indices", [])]
+        if not word_indices:
+            continue
+        first_word = safe_words[word_indices[0]]
+        last_word = safe_words[word_indices[-1]]
+        first_word_start = float(first_word.get("start", start))
+        last_word_end = float(last_word.get("end", end))
+
+        if start > first_word_start:
+            start = first_word_start
+        if end < last_word_end:
+            end = last_word_end
+
+        if end <= start:
+            end = min(float(media_duration), start + min_step)
+
+        segment_words = [safe_words[word_index] for word_index in word_indices]
+        segment["start"] = round_timestamp_value(max(0.0, start))
+        segment["end"] = round_timestamp_value(min(float(media_duration), end))
+        segment["word_start"] = round_timestamp_value(first_word_start)
+        segment["word_end"] = round_timestamp_value(last_word_end)
+        segment["words"] = segment_words
+        segment["source_words"] = segment_words
+
+        preserved_existing_text = clean_transcript_text(segment.get("text", "") or segment.get("raw_text", ""))
+        rebuilt_text = preserved_existing_text or build_preserved_text_from_words(segment_words)
+        if not rebuilt_text:
+            rebuilt_text = build_text_from_word_list(segment_words) or " "
+        segment["raw_text"] = rebuilt_text
+        segment["text"] = rebuilt_text
+        segment["lines"] = [rebuilt_text]
+
+        words_per_second = get_words_per_second(segment_words)
+        display_start, display_end = compute_subtitle_display_timing(
+            float(segment["start"]),
+            float(segment["end"]),
+            segment.get("text", ""),
+            words_per_second,
+        )
+        segment["subtitleStart"] = display_start
+        segment["subtitleEnd"] = display_end
+        segment["readingSpeed"] = compute_reading_speed(
+            segment.get("text", ""),
+            float(segment["start"]),
+            float(segment["end"]),
+        )
+
+    covered_unique = sorted(set(int(index) for index in covered_indices))
+    covered_set = set(covered_unique)
+    missing = [index for index in range(spoken_word_total) if index not in covered_set]
+    duplicate_count = max(len(covered_indices) - len(covered_unique), 0)
+    log(
+        "Coverage check: "
+        f"words_total={spoken_word_total} covered_unique={len(covered_unique)} "
+        f"missing={len(missing)} duplicates={duplicate_count} segments={len(normalized_segments)}"
+    )
+
+    if missing:
+        log(f"Coverage warning: missing word indices sample={missing[:12]}")
+    else:
+        log("Coverage validation passed: all words assigned exactly once.")
+
+    if duplicate_count != 0 or missing:
+        log("Coverage integrity issue detected after reconciliation; applying deterministic full-word fallback segment.")
+        fallback_words = list(safe_words)
+        fallback_start = float(fallback_words[0].get("start", 0.0))
+        fallback_end = float(media_duration) if float(media_duration) > 0.0 else float(fallback_words[-1].get("end", fallback_start))
+        fallback_text = build_preserved_text_from_words(fallback_words) or build_text_from_word_list(fallback_words) or " "
+        normalized_segments = [{
+            "clip_id": 0,
+            "start": round_timestamp_value(max(0.0, fallback_start)),
+            "end": round_timestamp_value(fallback_end),
+            "word_start": round_timestamp_value(fallback_start),
+            "word_end": round_timestamp_value(float(fallback_words[-1].get("end", fallback_start))),
+            "words": fallback_words,
+            "source_words": fallback_words,
+            "word_indices": list(range(spoken_word_total)),
+            "text": fallback_text,
+            "raw_text": fallback_text,
+            "lines": [fallback_text],
+            "text_source": "coverage_integrity_fallback",
+            "alignment_method": "coverage_integrity_fallback",
+            "auto_aligned": True,
+        }]
+
+    normalized_segments.sort(key=lambda item: int(item["word_indices"][0]))
+    for index, segment in enumerate(normalized_segments):
+        segment["clip_id"] = index
+    return normalize_segments(normalized_segments)
+
+
+def _segment_duration_from_indices(word_indices, words):
+    if not word_indices:
+        return 0.0
+    first = words[int(word_indices[0])]
+    last = words[int(word_indices[-1])]
+    return max(float(last.get("end", 0.0)) - float(first.get("start", 0.0)), 0.0)
+
+
+def _segment_text_incomplete_by_words(word_indices, words):
+    if not word_indices:
+        return True
+    segment_words = [words[int(index)] for index in word_indices]
+    text = build_text_from_word_list(segment_words).strip()
+    if not text:
+        return True
+    if is_sentence_boundary_token(text):
+        return False
+    tokens = text.lower().split()
+    if len(tokens) < 4:
+        return True
+    tail = tokens[-1].strip(",.;:!?")
+    incomplete_tails = {
+        "the", "a", "an", "to", "on", "in", "at", "for", "of", "with",
+        "and", "or", "but", "then", "now",
+    }
+    return tail in incomplete_tails
+
+
+def _should_semantically_merge_runs(current_indices, next_indices, words, max_seconds):
+    if not current_indices or not next_indices:
+        return False
+    current_duration = _segment_duration_from_indices(current_indices, words)
+    combined_indices = list(current_indices) + list(next_indices)
+    combined_duration = _segment_duration_from_indices(combined_indices, words)
+    if combined_duration > max_seconds:
+        return False
+
+    if current_duration < IDEAL_CLIP_MIN_SECONDS:
+        return True
+    if _segment_text_incomplete_by_words(current_indices, words):
+        return True
+
+    current_last = words[int(current_indices[-1])]
+    next_first = words[int(next_indices[0])]
+    gap = max(float(next_first.get("start", 0.0)) - float(current_last.get("end", 0.0)), 0.0)
+    if gap <= SENTENCE_PAUSE_SPLIT_SECONDS and not _segment_text_incomplete_by_words(next_indices, words):
+        return True
+    return False
+
+
+def _find_duration_split_position(word_indices, words, target_seconds, min_seconds):
+    if len(word_indices) < 6:
+        return None
+    start_time = float(words[int(word_indices[0])].get("start", 0.0))
+    target_time = start_time + target_seconds
+    best_position = None
+    best_score = None
+
+    for position in range(2, len(word_indices) - 2):
+        left_indices = word_indices[:position]
+        right_indices = word_indices[position:]
+        left_duration = _segment_duration_from_indices(left_indices, words)
+        right_duration = _segment_duration_from_indices(right_indices, words)
+        if left_duration < min_seconds or right_duration < min_seconds:
+            continue
+
+        previous_word = words[int(word_indices[position - 1])]
+        boundary_time = float(previous_word.get("end", start_time))
+        score = abs(boundary_time - target_time)
+        if is_sentence_boundary_token(get_word_token(previous_word)):
+            score -= 0.2
+        next_word = words[int(word_indices[position])]
+        if clean_text(get_word_token(next_word)).lower().strip(",.;:!?") in {token.lower() for token in CONNECTOR_WORDS}:
+            score += 0.1
+
+        if best_score is None or score < best_score:
+            best_score = score
+            best_position = position
+
+    return best_position
+
+
+def _is_function_like_token(token):
+    normalized = clean_text(token).lower().strip(",.;:!?")
+    return normalized in {
+        "the", "a", "an", "to", "on", "in", "at", "for", "of", "with", "from",
+        "by", "into", "onto", "over", "under", "and", "or", "but", "so",
+        "if", "then", "than", "as", "that", "this", "these", "those", "it",
+        "its", "is", "are", "was", "were", "be", "been", "being", "am", "do",
+        "does", "did", "have", "has", "had", "can", "could", "will", "would",
+        "should", "may", "might", "must",
+    }
+
+
+def _looks_like_clause_start_token(token):
+    normalized = clean_text(token).strip()
+    if not normalized:
+        return False
+    core = normalized.strip(",.;:!?").lower()
+    if not core or _is_function_like_token(core):
+        return False
+    if not re.search(r"[A-Za-z]", core):
+        return False
+    return True
+
+
+def _find_multi_action_split_position(word_indices, words, min_seconds):
+    if len(word_indices) < 8:
+        return None
+
+    run_words = [words[int(index)] for index in word_indices]
+    gap_profile = compute_gap_profile(run_words)
+    median_gap = float(gap_profile.get("median_gap", 0.0))
+    large_pause_threshold = float(gap_profile.get("large_pause_threshold", 0.0))
+    conjunction_markers = {"and", "then", "next", "afterward", "afterwards", "meanwhile", "also", "so"}
+
+    best_position = None
+    best_score = None
+    for position in range(2, len(word_indices) - 2):
+        left_indices = word_indices[:position]
+        right_indices = word_indices[position:]
+        if len(left_indices) < 3 or len(right_indices) < 3:
+            continue
+
+        left_duration = _segment_duration_from_indices(left_indices, words)
+        right_duration = _segment_duration_from_indices(right_indices, words)
+        if left_duration < min_seconds or right_duration < min_seconds:
+            continue
+
+        previous_word = words[int(word_indices[position - 1])]
+        current_word = words[int(word_indices[position])]
+        next_word = words[int(word_indices[position + 1])] if (position + 1) < len(word_indices) else None
+
+        previous_token = clean_text(get_word_token(previous_word))
+        current_token = clean_text(get_word_token(current_word))
+        next_token = clean_text(get_word_token(next_word)) if next_word else ""
+        current_core = current_token.lower().strip(",.;:!?")
+
+        marker_score = 0.0
+        if previous_token.endswith((",", ";", ":")) and _looks_like_clause_start_token(current_token):
+            marker_score += 2.0
+        if current_core in conjunction_markers and _looks_like_clause_start_token(next_token):
+            marker_score += 2.2
+        elif previous_token.lower().strip(",.;:!?") in conjunction_markers and _looks_like_clause_start_token(current_token):
+            marker_score += 1.8
+
+        if marker_score <= 0.0:
+            continue
+
+        gap = max(get_word_gap(previous_word, current_word), 0.0)
+        if gap >= large_pause_threshold and gap > 0.0:
+            marker_score += 0.8
+        elif gap >= median_gap and gap > 0.0:
+            marker_score += 0.4
+
+        if _segment_text_incomplete_by_words(left_indices, words):
+            marker_score -= 1.6
+        if _segment_text_incomplete_by_words(right_indices, words):
+            marker_score -= 1.2
+
+        if marker_score < 1.8:
+            continue
+
+        center_bias = abs((left_duration - right_duration)) * 0.08
+        score = marker_score - center_bias
+        if best_score is None or score > best_score:
+            best_score = score
+            best_position = position
+
+    return best_position
+
+
+def postprocess_segments_for_quality(segments, words, media_duration):
+    safe_words = list(words or [])
+    if not segments or not safe_words:
+        return normalize_segments(segments)
+
+    initial = [dict(segment) for segment in normalize_segments(segments)]
+    runs = []
+    for segment in sorted(initial, key=lambda item: int((item.get("word_indices") or [10**9])[0])):
+        indices = [int(index) for index in (segment.get("word_indices") or []) if 0 <= int(index) < len(safe_words)]
+        if not indices:
+            continue
+        runs.append(sorted(set(indices)))
+
+    if not runs:
+        return normalize_segments(initial)
+
+    # 1) Semantic merge for incomplete/broken sentence fragments.
+    semantic_runs = []
+    pointer = 0
+    semantic_limit = max(HARD_CLIP_MAX_SECONDS, 8.0)
+    while pointer < len(runs):
+        current = list(runs[pointer])
+        while pointer + 1 < len(runs) and _should_semantically_merge_runs(current, runs[pointer + 1], safe_words, semantic_limit):
+            current.extend(runs[pointer + 1])
+            pointer += 1
+        semantic_runs.append(current)
+        pointer += 1
+
+    # 2) Adaptive multi-action split (linguistic clause/conjunction cues, no fixed action verbs).
+    action_split_runs = []
+    for run in semantic_runs:
+        queue = [run]
+        while queue:
+            current = queue.pop(0)
+            split_position = _find_multi_action_split_position(current, safe_words, min_seconds=1.2)
+            if split_position is None:
+                action_split_runs.append(current)
+                continue
+            left = current[:split_position]
+            right = current[split_position:]
+            if not left or not right:
+                action_split_runs.append(current)
+                continue
+            queue.insert(0, right)
+            queue.insert(0, left)
+
+    # 3) Grammar-safe cleanup is word-preserving: rebuilt later directly from assigned words.
+
+    # 4) Hard duration control: split long runs; then merge tiny runs.
+    max_seconds = max(HARD_CLIP_MAX_SECONDS, 7.8)
+    min_seconds = IDEAL_CLIP_MIN_SECONDS
+    target_seconds = min(IDEAL_CLIP_MAX_SECONDS, 5.8)
+
+    split_runs = []
+    for run in action_split_runs:
+        pending = [run]
+        while pending:
+            current = pending.pop(0)
+            duration = _segment_duration_from_indices(current, safe_words)
+            if duration <= max_seconds:
+                split_runs.append(current)
+                continue
+
+            split_position = _find_duration_split_position(current, safe_words, target_seconds, min_seconds)
+            if split_position is None:
+                split_runs.append(current)
+                continue
+
+            left = current[:split_position]
+            right = current[split_position:]
+            if not left or not right:
+                split_runs.append(current)
+                continue
+
+            pending.insert(0, right)
+            pending.insert(0, left)
+
+    balanced_runs = []
+    index = 0
+    while index < len(split_runs):
+        current = list(split_runs[index])
+        current_duration = _segment_duration_from_indices(current, safe_words)
+        if current_duration >= min_seconds or len(split_runs) == 1:
+            balanced_runs.append(current)
+            index += 1
+            continue
+
+        if index + 1 < len(split_runs):
+            merged = current + list(split_runs[index + 1])
+            if _segment_duration_from_indices(merged, safe_words) <= max_seconds + 0.8:
+                balanced_runs.append(merged)
+                index += 2
+                continue
+
+        if balanced_runs:
+            candidate = list(balanced_runs[-1]) + current
+            if _segment_duration_from_indices(candidate, safe_words) <= max_seconds + 0.8:
+                balanced_runs[-1] = candidate
+                index += 1
+                continue
+
+        balanced_runs.append(current)
+        index += 1
+
+    rebuilt = []
+    for clip_id, run in enumerate(balanced_runs):
+        ordered_indices = sorted(set(int(index) for index in run))
+        if not ordered_indices:
+            continue
+        run_words = [safe_words[word_index] for word_index in ordered_indices]
+        start_time = float(run_words[0].get("start", 0.0))
+        end_time = float(run_words[-1].get("end", start_time))
+        if float(media_duration or 0.0) > 0.0:
+            end_time = min(end_time, float(media_duration))
+        if end_time <= start_time:
+            log(
+                "postprocess_segments_for_quality: invalid rebuilt run skipped "
+                f"clip_id={clip_id} start={start_time} end={end_time} indices={ordered_indices[:8]}"
+            )
+            continue
+        text = build_preserved_text_from_words(run_words) or build_text_from_word_list(run_words) or " "
+        rebuilt.append({
+            "clip_id": clip_id,
+            "start": round_timestamp_value(start_time),
+            "end": round_timestamp_value(end_time),
+            "word_indices": ordered_indices,
+            "words": run_words,
+            "source_words": run_words,
+            "text": text,
+            "raw_text": text,
+            "lines": [text],
+            "text_source": "postprocessed_quality",
+            "alignment_method": "postprocessed_quality",
+            "auto_aligned": True,
+        })
+
+    rebuilt = validate_and_repair_segments(
+        rebuilt,
+        words=safe_words,
+        media_duration=media_duration,
+        stage_label="postprocess_segments_for_quality_precheck",
+    )
+    return enforce_full_word_coverage(rebuilt, safe_words, media_duration)
+
+
 def assign_words_to_segments(segments, words):
     assigned = []
     word_index = 0
@@ -1155,10 +2017,10 @@ def validate_continuity(segments):
             f"end={format_timestamp_for_ffmpeg(end_ms)}"
         )
 
-        if previous_end_ms is not None and start_ms != previous_end_ms:
+        if previous_end_ms is not None and start_ms < previous_end_ms:
             raise ValueError(
-                f"Segment continuity error at {index}: "
-                f"previous end {format_timestamp_for_ffmpeg(previous_end_ms)} != "
+                f"Segment overlap error at {index}: "
+                f"previous end {format_timestamp_for_ffmpeg(previous_end_ms)} > "
                 f"current start {format_timestamp_for_ffmpeg(start_ms)}"
             )
 
@@ -1365,7 +2227,7 @@ def log_pipeline_observability(
 
 def transcribe(audio, fps, media_duration, video_path=None, alignment_mode=ALIGNMENT_MODE):
     model = get_whisper_model()
-    del fps, video_path
+    del fps
     resolved_mode = normalize_alignment_mode(alignment_mode)
 
     log("Running Whisper transcription with word timestamps...")
@@ -1380,40 +2242,13 @@ def transcribe(audio, fps, media_duration, video_path=None, alignment_mode=ALIGN
         no_speech_threshold=WHISPER_NO_SPEECH_THRESHOLD,
     )
     source_segments = list(source_segments)
-    print("=== WHISPER RAW OUTPUT ===")
-    for seg in source_segments[:5]:
-        print("TEXT:", clean_text(getattr(seg, "text", "")))
-        print("START:", round_timestamp_value(float(getattr(seg, "start", 0.0))), "END:", round_timestamp_value(float(getattr(seg, "end", 0.0))))
-    print("==========================")
-
     source_words = extract_words_from_whisper_segments(source_segments)
-    whisper_sentences = []
-    for seg in source_segments:
-        seg_text = clean_text(getattr(seg, "text", ""))
-        seg_start = getattr(seg, "start", None)
-        seg_end = getattr(seg, "end", None)
-        if not seg_text or seg_start is None or seg_end is None:
-            continue
-        whisper_sentences.append({
-            "text": seg_text,
-            "start": round_timestamp_value(float(seg_start)),
-            "end": round_timestamp_value(float(seg_end)),
-        })
 
     aligned_words, force_alignment_metadata = try_force_align_words(
         audio_path=audio,
         words=source_words,
         language_code=SOURCE_TRANSCRIBE_LANGUAGE,
     )
-    print("=== WHISPERX WORDS ===")
-    for word in (aligned_words or [])[:15]:
-        print(
-            get_word_token(word),
-            round_timestamp_value(float(word.get("start", 0.0))),
-            round_timestamp_value(float(word.get("end", 0.0))),
-        )
-    print("======================")
-
     source_words = aligned_words or source_words
     display_words = source_words
     alignment_metadata = {
@@ -1427,231 +2262,51 @@ def transcribe(audio, fps, media_duration, video_path=None, alignment_mode=ALIGN
     if force_alignment_metadata.get("error"):
         alignment_metadata["error"] = force_alignment_metadata.get("error")
 
+    alignment_metadata["method"] = "text_first_rewrite_grouping"
     word_source = "WHISPERX" if alignment_metadata.get("used") else "WHISPER"
-    print("WORD SOURCE:", word_source)
-    print("=== DEBUG: WORD SOURCE SAMPLE ===")
-    for word in source_words[:10]:
-        print(
-            f"{get_word_token(word)} | "
-            f"start={round_timestamp_value(float(word.get('start', 0.0)))} | "
-            f"end={round_timestamp_value(float(word.get('end', 0.0)))}"
+    log(f"Word source: {word_source}, words={len(source_words)}")
+    for index, word in enumerate(source_words[:20], start=1):
+        log(
+            f"Word[{index}] token={get_word_token(word)!r} "
+            f"start={format_seconds_for_ffmpeg(float(word.get('start', 0.0)))} "
+            f"end={format_seconds_for_ffmpeg(float(word.get('end', 0.0)))}"
         )
-    print("=================================")
 
-    sentence_groups = []
-    for sentence in whisper_sentences:
-        sentence_start = float(sentence.get("start", 0.0))
-        sentence_end = float(sentence.get("end", sentence_start))
-        duration = max(sentence_end - sentence_start, 0.0)
-        sentence_word_count = max(len(clean_text(sentence.get("text", "")).split()), 1)
-        margin = max((duration / sentence_word_count), 1.0 / DEFAULT_AUDIO_SAMPLE_RATE)
-        candidate_words = [
-            word
-            for word in source_words
-            if (sentence_start - margin) <= float(word.get("start", 0.0)) <= (sentence_end + margin)
-        ]
-
-        if candidate_words:
-            hint_start = min(float(word.get("start", sentence_start)) for word in candidate_words)
-            hint_end = max(float(word.get("end", sentence_end)) for word in candidate_words)
-            mapped_words = candidate_words
-        else:
-            hint_start = sentence_start
-            hint_end = sentence_end
-            mapped_words = []
-
-        proposed_start = round_timestamp_value(min(sentence_start, hint_start))
-        proposed_end = round_timestamp_value(max(sentence_end, hint_end))
-        start_time = round_timestamp_value(sentence_start)
-        end_time = round_timestamp_value(sentence_end)
-        sentence_groups.append({
-            "text": sentence.get("text", ""),
-            "start": round_timestamp_value(sentence_start),
-            "end": round_timestamp_value(sentence_end),
-            "start_time": start_time,
-            "end_time": end_time,
-            "hint_start": round_timestamp_value(hint_start),
-            "hint_end": round_timestamp_value(hint_end),
-            "proposed_start": proposed_start,
-            "proposed_end": proposed_end,
-            "mapped_words": mapped_words,
-        })
-
-    if sentence_groups:
-        energy_analysis = detect_energy_regions(audio)
-        energy_windows = list(energy_analysis.get("windows") or [])
-        min_step = 1.0 / DEFAULT_AUDIO_SAMPLE_RATE
-        alignment_metadata["method"] = "whisper_audio_boundaries"
-
-        def choose_transition_boundary(search_left, search_right, fallback):
-            left = float(min(search_left, search_right))
-            right = float(max(search_left, search_right))
-            fallback_value = float(fallback)
-            candidates = [
-                window for window in energy_windows
-                if float(window.get("end", left)) >= left and float(window.get("start", right)) <= right
-            ]
-            if not candidates:
-                return round_timestamp_value(fallback_value)
-
-            candidates = sorted(candidates, key=lambda window: float(window.get("start", 0.0)))
-            rms_values = sorted(float(window.get("rms", 0.0)) for window in candidates)
-            median_rms = rms_values[len(rms_values) // 2]
-            min_rms = rms_values[0]
-            silence_threshold = (median_rms + min_rms) / 2.0
-
-            silence_runs = []
-            run_start = None
-            run_end = None
-            for window in candidates:
-                rms = float(window.get("rms", 0.0))
-                window_start = float(window.get("start", left))
-                window_end = float(window.get("end", window_start))
-                if rms <= silence_threshold:
-                    if run_start is None:
-                        run_start = window_start
-                    run_end = window_end
-                else:
-                    if run_start is not None and run_end is not None:
-                        silence_runs.append((run_start, run_end))
-                    run_start = None
-                    run_end = None
-            if run_start is not None and run_end is not None:
-                silence_runs.append((run_start, run_end))
-
-            transition_candidates = []
-            for run_start, run_end in silence_runs:
-                prev_window = None
-                next_window = None
-                for window in candidates:
-                    window_end = float(window.get("end", run_start))
-                    if window_end <= run_start:
-                        prev_window = window
-                for window in candidates:
-                    window_start = float(window.get("start", run_end))
-                    if window_start >= run_end:
-                        next_window = window
-                        break
-                if prev_window is None or next_window is None:
-                    continue
-                transition_time = (run_start + run_end) / 2.0
-                transition_candidates.append(transition_time)
-
-            if transition_candidates:
-                best_transition = min(
-                    transition_candidates,
-                    key=lambda timestamp: abs(float(timestamp) - fallback_value),
-                )
-                return round_timestamp_value(best_transition)
-
-            strongest_fall = min(
-                candidates,
-                key=lambda window: float(window.get("delta", 0.0)),
-            )
-            strongest_rise = max(
-                candidates,
-                key=lambda window: float(window.get("delta", 0.0)),
-            )
-            fall_time = float(strongest_fall.get("end", fallback_value))
-            rise_time = float(strongest_rise.get("start", fallback_value))
-
-            if fall_time <= rise_time:
-                return round_timestamp_value((fall_time + rise_time) / 2.0)
-            return round_timestamp_value(fallback_value)
-
-        boundaries = [0.0 for _ in range(len(sentence_groups) + 1)]
-
-        for index in range(len(sentence_groups) - 1):
-            current = sentence_groups[index]
-            next_sentence = sentence_groups[index + 1]
-            current_whisper_end = float(current.get("end", 0.0))
-            next_whisper_start = float(next_sentence.get("start", current_whisper_end))
-            fallback_boundary = round_timestamp_value((current_whisper_end + next_whisper_start) / 2.0)
-
-            search_left = min(current_whisper_end, next_whisper_start)
-            search_right = max(current_whisper_end, next_whisper_start)
-            if search_right <= search_left:
-                search_left = min(
-                    float(current.get("hint_end", current_whisper_end)),
-                    current_whisper_end,
-                    next_whisper_start,
-                    float(next_sentence.get("hint_start", next_whisper_start)),
-                )
-                search_right = max(
-                    float(current.get("hint_end", current_whisper_end)),
-                    current_whisper_end,
-                    next_whisper_start,
-                    float(next_sentence.get("hint_start", next_whisper_start)),
-                )
-                search_left = max(float(current.get("start", 0.0)), search_left)
-                search_right = min(float(next_sentence.get("end", media_duration)), search_right)
-
-            boundary = choose_transition_boundary(search_left, search_right, fallback_boundary)
-            if search_right > search_left:
-                boundary = round_timestamp_value(min(max(float(boundary), search_left), search_right))
-            else:
-                boundary = fallback_boundary
-            boundaries[index + 1] = boundary
-
-        boundaries[0] = 0.0
-        boundaries[-1] = float(media_duration)
-
-        for index in range(1, len(boundaries)):
-            lower_bound = float(boundaries[index - 1]) + min_step
-            boundaries[index] = round_timestamp_value(max(float(boundaries[index]), lower_bound))
-
-        boundaries[-1] = round_timestamp_value(float(media_duration))
-        for index in range(len(boundaries) - 2, -1, -1):
-            upper_bound = float(boundaries[index + 1]) - min_step
-            boundaries[index] = round_timestamp_value(min(float(boundaries[index]), upper_bound))
-            boundaries[index] = round_timestamp_value(max(0.0, float(boundaries[index])))
-
-        for index, sentence in enumerate(sentence_groups):
-            sentence["start_time"] = round_timestamp_value(float(boundaries[index]))
-            sentence["end_time"] = round_timestamp_value(float(boundaries[index + 1]))
-
-    print("=== TEXT SOURCE CHECK ===")
-    print("Whisper sentence:", clean_text(getattr(source_segments[0], "text", "")) if source_segments else "")
-    print("Current sentence:", sentence_groups[0].get("text", "") if sentence_groups else "")
-    print("=========================")
-    print("=== SENTENCE WORD MAPPING ===")
-    for sentence in sentence_groups[:5]:
-        mapped_words = [clean_text(word.get("text", "")) for word in (sentence.get("mapped_words") or [])]
-        print("TEXT:", sentence.get("text", ""))
-        print("WORDS:", mapped_words)
-    print("=============================")
-    print("=== MISSING WORD CHECK ===")
-    for sentence in sentence_groups[:5]:
-        text_words = [clean_text(token) for token in sentence.get("text", "").split() if clean_text(token)]
-        mapped_words = [clean_text(word.get("text", "")) for word in (sentence.get("mapped_words") or [])]
-        print("TEXT:", text_words)
-        print("MAPPED:", mapped_words)
-        print("MISSING:", sorted(set(text_words) - set(mapped_words)))
-    print("===========================")
-
-    print("=== DEBUG: SENTENCE TIMING ===")
-    for sentence in sentence_groups[:5]:
-        print(f"TEXT: {sentence.get('text', '')}")
-        print(
-            f"START: {round_timestamp_value(float(sentence.get('start_time', 0.0)))}, "
-            f"END: {round_timestamp_value(float(sentence.get('end_time', 0.0)))}"
-        )
-    print("================================")
+    sentence_groups = build_text_first_sentence_groups(
+        source_words,
+        whisper_segments=source_segments,
+    )
+    log(
+        f"Built {len(sentence_groups)} text-first sentence groups from rewritten transcript"
+    )
     aligned_segments = []
     min_step = 1.0 / DEFAULT_AUDIO_SAMPLE_RATE
     for index, sentence in enumerate(sentence_groups):
-        raw_text = clean_text(sentence.get("text", ""))
+        mapped_words = list(sentence.get("words") or [])
+        if not mapped_words:
+            continue
+
+        first_word_start = float(mapped_words[0]["start"])
+        last_word_end = float(mapped_words[-1]["end"])
+        start_time = max(0.0, first_word_start)
+        end_time = min(float(media_duration), max(last_word_end, start_time + min_step))
+        if end_time <= start_time:
+            continue
+
+        tolerance = SEGMENT_ASSERT_TOLERANCE_SECONDS
+        assert start_time <= (first_word_start + tolerance), "sentence start exceeds first word boundary tolerance"
+        assert end_time >= (last_word_end - tolerance), "sentence end precedes last word boundary tolerance"
+
+        log(
+            f"Sentence[{index + 1}] start={format_seconds_for_ffmpeg(start_time)} "
+            f"end={format_seconds_for_ffmpeg(end_time)} words={len(mapped_words)} "
+            f"reason={sentence.get('split_reason', 'unknown')}"
+        )
+
+        raw_text = build_preserved_text_from_words(mapped_words)
         if not raw_text:
-            continue
+            raw_text = sentence.get("text", "") or build_text_from_word_list(mapped_words) or " "
 
-        start_time = round_timestamp_value(max(0.0, float(sentence.get("start_time", 0.0))))
-        end_time = round_timestamp_value(min(float(media_duration), float(sentence.get("end_time", start_time))))
-        if end_time <= start_time:
-            end_time = round_timestamp_value(min(float(media_duration), start_time + min_step))
-        if end_time <= start_time:
-            continue
-
-        mapped_words = find_words_in_range(source_words, start_time, end_time) or list(sentence.get("mapped_words") or [])
         words_per_second = get_words_per_second(mapped_words)
         confidence = average_word_confidence(mapped_words)
         confidence_status = get_confidence_status(confidence)
@@ -1663,16 +2318,16 @@ def transcribe(audio, fps, media_duration, video_path=None, alignment_mode=ALIGN
         )
         segment_payload = {
             "clip_id": index,
-            "start": start_time,
-            "end": end_time,
+            "start": round_timestamp_value(start_time),
+            "end": round_timestamp_value(end_time),
             "subtitleStart": display_start,
             "subtitleEnd": display_end,
-            "word_start": start_time,
-            "word_end": end_time,
-            "original_start": round_timestamp_value(float(sentence.get("start", start_time))),
-            "original_end": round_timestamp_value(float(sentence.get("end", end_time))),
-            "natural_start": start_time,
-            "natural_end": end_time,
+            "word_start": round_timestamp_value(first_word_start),
+            "word_end": round_timestamp_value(last_word_end),
+            "original_start": round_timestamp_value(first_word_start),
+            "original_end": round_timestamp_value(last_word_end),
+            "natural_start": round_timestamp_value(first_word_start),
+            "natural_end": round_timestamp_value(last_word_end),
             "words_per_second": words_per_second,
             "silenceAdjustment": 0.0,
             "energyAdjustment": 0.0,
@@ -1687,27 +2342,53 @@ def transcribe(audio, fps, media_duration, video_path=None, alignment_mode=ALIGN
             "needsReview": confidence_status == "needs_review",
             "auto_aligned": True,
             "alignment_mode": normalize_alignment_mode(resolved_mode),
-            "alignment_method": "whisper_text_with_word_timing",
+            "alignment_method": "text_first_rewrite_grouping",
             "forced_alignment_used": bool(alignment_metadata.get("used")),
             "text_corrected": False,
-            "text_source": "whisper_segments",
+            "text_source": "text_first_rewrite_grouping",
             "confidence_expanded": False,
             "words": mapped_words,
             "source_words": mapped_words,
+            "word_indices": list(sentence.get("word_indices") or []),
         }
         aligned_segments.append(segment_payload)
 
-    aligned_segments = [segment for segment in aligned_segments if segment.get("text", "") != ""]
-    print("=== FINAL SEGMENTS ===")
-    for segment in aligned_segments[:5]:
-        print(
-            round_timestamp_value(float(segment.get("start", 0.0))),
-            "->",
-            round_timestamp_value(float(segment.get("end", 0.0))),
-            "|",
-            segment.get("text", ""),
+    aligned_segments = refine_segment_boundaries_with_energy(audio, aligned_segments)
+    aligned_segments = enforce_full_word_coverage(aligned_segments, source_words, media_duration)
+    aligned_segments = validate_and_repair_segments(
+        aligned_segments,
+        words=source_words,
+        media_duration=media_duration,
+        stage_label="transcribe_final_precheck",
+    )
+    aligned_segments = enforce_strict_timeline_continuity(
+        aligned_segments,
+        media_duration=media_duration,
+        stage_label="transcribe_timeline_continuity",
+    )
+
+    assigned_indices = []
+    for segment in aligned_segments:
+        assigned_indices.extend(int(index) for index in (segment.get("word_indices") or []))
+    assigned_unique = set(assigned_indices)
+    expected_total = len(source_words)
+    duplicate_assignments = len(assigned_indices) - len(assigned_unique)
+    missing_indices = [index for index in range(expected_total) if index not in assigned_unique]
+    log(
+        "Post-segmentation integrity: "
+        f"words_total={expected_total} assigned={len(assigned_indices)} "
+        f"unique={len(assigned_unique)} duplicates={duplicate_assignments} "
+        f"missing={len(missing_indices)}"
+    )
+    if missing_indices or duplicate_assignments:
+        log(f"Integrity warning details: missing_sample={missing_indices[:12]}")
+
+    for segment in aligned_segments[:20]:
+        log(
+            f"Final clip boundary clip_id={segment.get('clip_id')} "
+            f"start={format_seconds_for_ffmpeg(float(segment.get('start', 0.0)))} "
+            f"end={format_seconds_for_ffmpeg(float(segment.get('end', 0.0)))}"
         )
-    print("======================")
 
     audio_duration = 0.0
     try:
@@ -1733,7 +2414,7 @@ def transcribe(audio, fps, media_duration, video_path=None, alignment_mode=ALIGN
     }
     del cache_payload
 
-    return aligned_segments, display_words, alignment_metadata
+    return normalize_segments(aligned_segments), display_words, alignment_metadata
 
 
 def transcribe_segment_audio(audio_path):
@@ -1916,37 +2597,66 @@ def extract_audio_segment(input_video, start_time, end_time):
     return output_path
 
 
+def apply_stream_offset_to_clip_range(start_seconds, end_seconds, stream_offset_seconds):
+    start = max(float(start_seconds) + float(stream_offset_seconds), 0.0)
+    end = max(float(end_seconds) + float(stream_offset_seconds), start)
+    return start, end
+
+
 def create_clips(input_video, segments):
     base_name = sanitize_export_base_name(input_video)
     base_dir = os.path.dirname(input_video)
     normalized_segments = normalize_segments(segments)
     validate_continuity(normalized_segments)
+    stream_times = get_media_stream_start_times(input_video)
+    stream_offset_seconds = float(stream_times.get("offset_seconds", 0.0))
+    log(
+        "Clip export stream alignment "
+        f"video_start={format_seconds_for_ffmpeg(stream_times.get('video_start', 0.0))} "
+        f"audio_start={format_seconds_for_ffmpeg(stream_times.get('audio_start', 0.0))} "
+        f"offset={format_seconds_for_ffmpeg(stream_offset_seconds)}"
+    )
 
     for i, seg in enumerate(normalized_segments):
-        start_ms = int(seg["start_ms"])
-        end_ms = int(seg["end_ms"])
-        duration_ms = end_ms - start_ms
+        start_seconds = float(seg["start"])
+        end_seconds = float(seg["end"])
+        duration_seconds = end_seconds - start_seconds
 
-        if duration_ms <= 0:
+        if duration_seconds <= 0:
             log(f"Skipping segment {i+1} because duration is not positive")
             continue
 
-        start = format_timestamp_for_ffmpeg(start_ms)
-        end = format_timestamp_for_ffmpeg(end_ms)
+        clip_start, clip_end = apply_stream_offset_to_clip_range(
+            start_seconds,
+            end_seconds,
+            stream_offset_seconds,
+        )
+        if clip_end <= clip_start:
+            log(f"Skipping segment {i+1} due to invalid offset-adjusted range")
+            continue
 
-        log(f"Creating clip {i+1}")
+        log(
+            f"Creating clip {i + 1} "
+            f"segment_start={format_seconds_for_ffmpeg(start_seconds)} "
+            f"segment_end={format_seconds_for_ffmpeg(end_seconds)} "
+            f"ffmpeg_start={format_seconds_for_ffmpeg(clip_start)} "
+            f"ffmpeg_end={format_seconds_for_ffmpeg(clip_end)}"
+        )
 
         clip_path = os.path.join(base_dir, f"{base_name}_clip_{i+1}.mp4")
 
         run_command([
             "ffmpeg", "-y",
+            "-ss", format_seconds_for_ffmpeg(clip_start),
+            "-to", format_seconds_for_ffmpeg(clip_end),
             "-i", input_video,
-            "-vf", f"trim=start={start}:end={end},setpts=PTS-STARTPTS",
-            "-af", f"atrim=start={start}:end={end},asetpts=PTS-STARTPTS",
+            "-map", "0:v:0",
+            "-map", "0:a:0",
             "-c:v", "libx264",
             "-c:a", "aac",
             "-preset", "fast",
             "-crf", "23",
+            "-avoid_negative_ts", "make_zero",
             clip_path
         ])
 
@@ -2077,6 +2787,22 @@ def clean_transcript_text(text):
     cleaned = re.sub(r"\s+'\s*", "'", cleaned)
     cleaned = re.sub(r"\s+", " ", cleaned)
     return cleaned.strip()
+
+
+def build_preserved_text_from_words(words):
+    tokens = [clean_text(get_word_token(word)) for word in (words or [])]
+    tokens = [token for token in tokens if token]
+    if not tokens:
+        return ""
+
+    # Keep token sequence exactly as assigned words; only normalize whitespace/punctuation spacing.
+    rebuilt = clean_transcript_text(" ".join(tokens))
+    if not rebuilt:
+        return ""
+    rebuilt = rebuilt[0].upper() + rebuilt[1:] if len(rebuilt) > 1 else rebuilt.upper()
+    if rebuilt[-1] not in ".!?":
+        rebuilt = f"{rebuilt}."
+    return rebuilt
 
 
 def refine_clip_text(text: str, confidence: float) -> str:
@@ -2210,6 +2936,12 @@ def clean_whisper_translated_text(text):
     return cleaned
 
 
+def normalize_token_for_alignment(token):
+    normalized = clean_text(token).lower()
+    normalized = re.sub(r"^[^\w]+|[^\w]+$", "", normalized)
+    return normalized
+
+
 def contains_hallucination_phrase(text):
     normalized = clean_transcript_text(text).lower()
     return any(phrase in normalized for phrase in HALLUCINATION_PHRASES)
@@ -2233,6 +2965,202 @@ def looks_like_incomplete_clip_text(text):
             return True
 
     return False
+
+
+def _starts_with_transition_phrase(text):
+    normalized = clean_transcript_text(text).lower()
+    return bool(re.match(r"^(first|next|then|after that|finally|now)\b[\s,.:;-]*", normalized))
+
+
+def _tokenize_meaningful(text):
+    tokens = re.findall(r"[A-Za-z']+", clean_transcript_text(text).lower())
+    stopwords = {
+        "the", "a", "an", "to", "of", "on", "in", "at", "for", "with", "and",
+        "or", "but", "if", "then", "this", "that", "these", "those", "is",
+        "are", "was", "were", "be", "been", "being", "it", "its", "as", "by",
+    }
+    return [token for token in tokens if len(token) > 2 and token not in stopwords]
+
+
+def _strip_leading_transition_phrase(text):
+    cleaned = clean_transcript_text(text)
+    if not cleaned:
+        return ""
+    updated = re.sub(
+        r"^(first|next|then|after that|finally|now)\b[\s,.:;-]*",
+        "",
+        cleaned,
+        flags=re.IGNORECASE,
+    ).strip()
+    # Avoid connectors like "Then, and click..."
+    updated = re.sub(r"^(and|then|so)\b[\s,.:;-]*", "", updated, flags=re.IGNORECASE).strip()
+    return clean_transcript_text(updated)
+
+
+def _strip_dangling_connector_tail(text):
+    cleaned = clean_transcript_text(text)
+    if not cleaned:
+        return ""
+    updated = re.sub(r"[\s,;:]+(and|or|then|so|now)\.?$", "", cleaned, flags=re.IGNORECASE).strip()
+    return clean_transcript_text(updated)
+
+
+def _normalize_segment_text_for_sequence(text):
+    cleaned = clean_transcript_text(text)
+    cleaned = _strip_leading_transition_phrase(cleaned)
+    cleaned = _strip_dangling_connector_tail(cleaned)
+    cleaned = re.sub(r",\s*([.!?])", r"\1", cleaned)
+    cleaned = re.sub(r"\s+([,.;!?])", r"\1", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    if cleaned and cleaned[-1] not in ".!?":
+        cleaned = f"{cleaned}."
+    return cleaned
+
+
+def _rewrite_narrative_sequence(text):
+    cleaned = clean_transcript_text(text)
+    if not cleaned:
+        return ""
+
+    if shutil.which("ollama") is None:
+        return cleaned
+
+    prompt = (
+        "Rewrite the following tutorial transcript into a smooth, coherent step-by-step explanation. "
+        "Preserve meaning and instruction order. Do not add new steps. Avoid repetitive connectors. "
+        "Return only the rewritten tutorial text.\n\n"
+        f"{cleaned}"
+    )
+    try:
+        result = subprocess.run(
+            ["ollama", "run", LOCAL_TEXT_CORRECTION_MODEL, prompt],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=60,
+        )
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError) as exc:
+        log(f"Sequence rewriting skipped: {exc}")
+        return cleaned
+
+    rewritten = clean_transcript_text(result.stdout or "")
+    return rewritten or cleaned
+
+
+def _split_text_into_assignable_units(text):
+    cleaned = clean_transcript_text(text)
+    if not cleaned:
+        return []
+    units = [unit.strip() for unit in re.split(r"(?<=[.!?])\s+", cleaned) if unit.strip()]
+    if len(units) <= 1:
+        units = [part.strip() for part in re.split(r"(?<=[,;:])\s+", cleaned) if part.strip()]
+    normalized = []
+    for unit in units:
+        item = clean_transcript_text(unit)
+        if item and item[-1] not in ".!?":
+            item = f"{item}."
+        if item:
+            normalized.append(item)
+    return normalized
+
+
+def _redistribute_rewritten_units_to_segments(ordered_segments, rewritten_text):
+    units = _split_text_into_assignable_units(rewritten_text)
+    if not units:
+        return [segment.get("text", "") for segment in ordered_segments]
+
+    base_lengths = []
+    for segment in ordered_segments:
+        base = _normalize_segment_text_for_sequence(segment.get("text", "") or segment.get("raw_text", ""))
+        base_lengths.append(max(len(base), 1))
+
+    total_length = sum(base_lengths) or 1
+    remaining_units = len(units)
+    assigned = []
+    cursor = 0
+
+    for index, segment in enumerate(ordered_segments):
+        segments_left = len(ordered_segments) - index
+        if cursor >= len(units):
+            assigned.append(_normalize_segment_text_for_sequence(segment.get("text", "") or segment.get("raw_text", "")))
+            continue
+
+        target = max(18, int(round((base_lengths[index] / total_length) * len(clean_transcript_text(rewritten_text)))))
+        chunk = []
+        char_count = 0
+        while cursor < len(units):
+            unit = units[cursor]
+            projected = char_count + (1 if chunk else 0) + len(unit)
+            must_keep_for_rest = (len(units) - (cursor + 1)) < (segments_left - 1)
+            if chunk and projected > target and not must_keep_for_rest:
+                break
+            chunk.append(unit)
+            char_count = projected
+            cursor += 1
+            remaining_units -= 1
+            if char_count >= target and not must_keep_for_rest:
+                break
+
+        if not chunk:
+            chunk = [units[cursor]]
+            cursor += 1
+            remaining_units -= 1
+
+        merged = clean_transcript_text(" ".join(chunk))
+        if merged and merged[-1] not in ".!?":
+            merged = f"{merged}."
+        assigned.append(merged or _normalize_segment_text_for_sequence(segment.get("text", "") or segment.get("raw_text", "")))
+
+    return assigned
+
+
+def apply_cross_segment_flow_text(segments):
+    if not segments:
+        return []
+
+    ordered = [dict(segment) for segment in normalize_segments(segments)]
+    if len(ordered) <= 1:
+        return ordered
+
+    normalized_texts = [
+        _normalize_segment_text_for_sequence(segment.get("text", "") or segment.get("raw_text", ""))
+        for segment in ordered
+    ]
+    combined = clean_transcript_text(" ".join(text for text in normalized_texts if text))
+    rewritten = _rewrite_narrative_sequence(combined)
+    reassigned_texts = _redistribute_rewritten_units_to_segments(ordered, rewritten)
+
+    previous_prefix = ""
+    for index, segment in enumerate(ordered):
+        updated_text = _normalize_segment_text_for_sequence(reassigned_texts[index] if index < len(reassigned_texts) else "")
+        if not updated_text:
+            updated_text = normalized_texts[index]
+        if not updated_text:
+            continue
+
+        # Prevent repetitive transition starts across neighboring segments.
+        current_prefix = re.match(r"^(first|next|then|after that|finally|now)\b", updated_text.lower())
+        if current_prefix:
+            prefix_value = current_prefix.group(1)
+            if prefix_value == previous_prefix:
+                updated_text = _strip_leading_transition_phrase(updated_text)
+                if updated_text and updated_text[-1] not in ".!?":
+                    updated_text = f"{updated_text}."
+            else:
+                previous_prefix = prefix_value
+        else:
+            previous_prefix = ""
+
+        segment["text"] = updated_text
+        segment["raw_text"] = updated_text
+        segment["lines"] = [updated_text]
+        segment["readingSpeed"] = compute_reading_speed(
+            updated_text,
+            float(segment.get("start", 0.0)),
+            float(segment.get("end", 0.0)),
+        )
+
+    return ordered
 
 
 def count_sentence_endings(text):
@@ -2656,6 +3584,518 @@ def build_text_from_word_list(words):
     if not tokens:
         return ""
     return clean_transcript_text(" ".join(tokens))
+
+
+def _compute_percentile(values, percentile):
+    if not values:
+        return 0.0
+    sorted_values = sorted(float(value) for value in values)
+    if len(sorted_values) == 1:
+        return sorted_values[0]
+    rank = max(0.0, min(1.0, float(percentile))) * (len(sorted_values) - 1)
+    lower = int(math.floor(rank))
+    upper = int(math.ceil(rank))
+    if lower == upper:
+        return sorted_values[lower]
+    weight = rank - lower
+    return sorted_values[lower] * (1.0 - weight) + sorted_values[upper] * weight
+
+
+def _build_whisper_prior_boundary_indices(indexed_words, whisper_segments):
+    if not indexed_words or not whisper_segments:
+        return set()
+
+    timed_segments = extract_timed_segments_from_whisper_segments(whisper_segments)
+    if not timed_segments:
+        return set()
+
+    boundaries = set()
+    word_pointer = 0
+    last_consumed_index = -1
+    total_words = len(indexed_words)
+
+    for segment in timed_segments:
+        segment_end = float(segment.get("end", 0.0))
+        current_last = last_consumed_index
+        while word_pointer < total_words:
+            global_index, word = indexed_words[word_pointer]
+            midpoint = (float(word.get("start", 0.0)) + float(word.get("end", 0.0))) / 2.0
+            if midpoint <= segment_end + 0.08:
+                current_last = global_index
+                word_pointer += 1
+            else:
+                break
+        if 0 <= current_last < (indexed_words[-1][0]):
+            boundaries.add(current_last)
+        last_consumed_index = max(last_consumed_index, current_last)
+
+    return boundaries
+
+
+def _distribute_counts_to_total(weights, total):
+    if total <= 0:
+        return [0 for _ in weights]
+    if not weights:
+        return []
+    safe_weights = [max(float(weight), 0.0) for weight in weights]
+    weight_sum = sum(safe_weights)
+    if weight_sum <= 0:
+        base = [0 for _ in safe_weights]
+        for i in range(total):
+            base[i % len(base)] += 1
+        return base
+
+    raw = [(weight / weight_sum) * total for weight in safe_weights]
+    counts = [max(int(math.floor(value)), 0) for value in raw]
+    remainders = [(raw[index] - counts[index], index) for index in range(len(raw))]
+    allocated = sum(counts)
+
+    # Ensure each bucket has at least one item when possible.
+    if total >= len(counts):
+        for index in range(len(counts)):
+            if counts[index] == 0:
+                counts[index] = 1
+                allocated += 1
+
+    if allocated > total:
+        for _, index in sorted(remainders):
+            if allocated <= total:
+                break
+            if counts[index] > 1:
+                counts[index] -= 1
+                allocated -= 1
+    elif allocated < total:
+        for _, index in sorted(remainders, reverse=True):
+            if allocated >= total:
+                break
+            counts[index] += 1
+            allocated += 1
+        index = 0
+        while allocated < total:
+            counts[index % len(counts)] += 1
+            allocated += 1
+            index += 1
+
+    return counts
+
+
+def build_text_first_sentence_groups(words, whisper_segments=None):
+    indexed_words = [
+        (index, word)
+        for index, word in enumerate(words or [])
+        if clean_text(word.get("text", ""))
+    ]
+    if not indexed_words:
+        return []
+
+    full_text = build_preserved_text_from_words([word for _, word in indexed_words]) or build_text_from_word_list(
+        [word for _, word in indexed_words]
+    )
+    rewritten = _rewrite_narrative_sequence(full_text)
+    rewritten = clean_transcript_text(rewritten) or clean_transcript_text(full_text)
+    if rewritten and rewritten[-1] not in ".!?":
+        rewritten = f"{rewritten}."
+
+    step_texts = split_text_into_sentences(rewritten)
+    if len(step_texts) <= 1:
+        step_texts = [part.strip() for part in re.split(r"(?<=[;:])\s+", rewritten) if part.strip()]
+    if not step_texts:
+        step_texts = [rewritten] if rewritten else [full_text]
+
+    # Remove immediate repeated steps while preserving order.
+    deduped_steps = []
+    for step in step_texts:
+        cleaned = clean_transcript_text(step)
+        if not cleaned:
+            continue
+        if deduped_steps and deduped_steps[-1].lower() == cleaned.lower():
+            continue
+        deduped_steps.append(cleaned if cleaned[-1] in ".!?" else f"{cleaned}.")
+    step_texts = deduped_steps or [rewritten or full_text]
+
+    token_counts = []
+    for step in step_texts:
+        tokens = [token for token in re.findall(r"[A-Za-z']+", step) if token.strip()]
+        token_counts.append(max(len(tokens), 1))
+
+    counts = _distribute_counts_to_total(token_counts, len(indexed_words))
+    groups = []
+    cursor = 0
+
+    for step_index, step_text in enumerate(step_texts):
+        if cursor >= len(indexed_words):
+            break
+        take = counts[step_index] if step_index < len(counts) else 0
+        remaining_steps = len(step_texts) - step_index
+        remaining_words = len(indexed_words) - cursor
+        if step_index == len(step_texts) - 1:
+            take = remaining_words
+        else:
+            min_keep_for_rest = max(remaining_steps - 1, 0)
+            take = max(take, 1)
+            take = min(take, max(1, remaining_words - min_keep_for_rest))
+
+        chunk = indexed_words[cursor:cursor + take]
+        if not chunk:
+            continue
+
+        chunk_indices = [global_index for global_index, _ in chunk]
+        chunk_words = [word for _, word in chunk]
+        groups.append({
+            "words": chunk_words,
+            "word_indices": chunk_indices,
+            "split_reason": "text_first_rewrite",
+            "start": float(chunk_words[0]["start"]),
+            "end": float(chunk_words[-1]["end"]),
+            "text": step_text,
+        })
+        cursor += take
+
+    if cursor < len(indexed_words) and groups:
+        # Append leftovers to the last step to preserve full coverage.
+        extra_chunk = indexed_words[cursor:]
+        groups[-1]["words"].extend([word for _, word in extra_chunk])
+        groups[-1]["word_indices"].extend([index for index, _ in extra_chunk])
+        groups[-1]["end"] = float(groups[-1]["words"][-1]["end"])
+        merged_text = clean_transcript_text(groups[-1].get("text", ""))
+        if merged_text and merged_text[-1] not in ".!?":
+            merged_text = f"{merged_text}."
+        groups[-1]["text"] = merged_text or build_preserved_text_from_words(groups[-1]["words"])
+
+    whisper_prior_boundaries = _build_whisper_prior_boundary_indices(indexed_words, whisper_segments)
+    if whisper_prior_boundaries:
+        for group in groups:
+            first_index = int(group["word_indices"][0])
+            last_index = int(group["word_indices"][-1])
+            if first_index <= last_index and (last_index in whisper_prior_boundaries):
+                group["split_reason"] = "text_first_with_whisper_prior"
+
+    log(
+        "Text-first grouping: "
+        f"words={len(indexed_words)} steps={len(step_texts)} groups={len(groups)}"
+    )
+    return groups
+
+
+def build_sentence_groups_from_words(words, pause_threshold=SENTENCE_PAUSE_SPLIT_SECONDS, whisper_segments=None):
+    indexed_words = [
+        (index, word)
+        for index, word in enumerate(words or [])
+        if clean_text(word.get("text", ""))
+    ]
+    if not indexed_words:
+        return []
+
+    gaps = []
+    for idx in range(1, len(indexed_words)):
+        previous_word = indexed_words[idx - 1][1]
+        current_word = indexed_words[idx][1]
+        gaps.append(max(get_word_gap(previous_word, current_word), 0.0))
+
+    median_gap = _compute_percentile(gaps, 0.5) if gaps else float(pause_threshold)
+    high_gap = _compute_percentile(gaps, 0.75) if gaps else float(pause_threshold)
+    very_high_gap = _compute_percentile(gaps, 0.9) if gaps else max(float(pause_threshold), median_gap)
+
+    whisper_prior_boundaries = _build_whisper_prior_boundary_indices(indexed_words, whisper_segments)
+    word_count = len(indexed_words)
+    adaptive_soft_words = max(6, int(round(_compute_percentile([word_count], 0.5) ** 0.5)) + 8)
+    adaptive_hard_words = max(adaptive_soft_words + 5, 24)
+    adaptive_soft_duration = max(5.0, 1.8 + (high_gap * 12.0))
+    adaptive_hard_duration = max(8.0, adaptive_soft_duration + 2.6)
+
+    sentence_groups = []
+    current_words = [indexed_words[0][1]]
+    current_indices = [indexed_words[0][0]]
+    best_split_index = None
+    best_split_score = None
+    best_split_reason = "semantic_score"
+
+    for entry_index in range(1, len(indexed_words)):
+        current_word_index, word = indexed_words[entry_index]
+        previous_word = indexed_words[entry_index - 1][1]
+        pause_gap = max(get_word_gap(previous_word, word), 0.0)
+        current_duration = max(
+            float(previous_word.get("end", 0.0)) - float(current_words[0].get("start", 0.0)),
+            0.0,
+        )
+        current_length = len(current_words)
+        previous_token = get_word_token(previous_word)
+        next_token = get_word_token(word)
+
+        split_score = 0.0
+        split_reason = "semantic_context"
+        if is_sentence_boundary_token(previous_token):
+            split_score += 4.2
+            split_reason = "punctuation"
+        elif clean_text(previous_token).endswith((",", ";", ":")):
+            split_score += 2.1
+            split_reason = "clause_punctuation"
+
+        if pause_gap >= very_high_gap and pause_gap > 0.0:
+            split_score += 2.4
+        elif pause_gap >= high_gap and pause_gap > 0.0:
+            split_score += 1.2
+        elif pause_gap >= max(median_gap, float(pause_threshold)):
+            split_score += 0.6
+
+        if current_word_index - 1 in whisper_prior_boundaries:
+            split_score += 2.5
+            if split_reason == "semantic_context":
+                split_reason = "whisper_prior"
+
+        if current_length >= adaptive_soft_words:
+            split_score += 0.8
+        if current_duration >= adaptive_soft_duration:
+            split_score += 0.8
+
+        next_is_sentence_startish = bool(next_token and next_token[:1].isupper())
+        if next_is_sentence_startish and pause_gap >= median_gap:
+            split_score += 0.6
+        if (
+            not clean_text(previous_token).endswith((".", "!", "?", ",", ";", ":"))
+            and next_token
+            and next_token[:1].islower()
+            and pause_gap <= median_gap
+            and current_length <= 4
+        ):
+            split_score -= 0.7
+
+        if best_split_score is None or split_score > best_split_score:
+            best_split_score = split_score
+            best_split_index = current_length
+            best_split_reason = split_reason
+
+        should_split = split_score >= 3.0 and current_length >= 3
+        overflow = (
+            current_length >= adaptive_hard_words
+            or current_duration >= adaptive_hard_duration
+        )
+
+        if should_split or overflow:
+            split_index = best_split_index if overflow and best_split_index is not None and best_split_index >= 2 else current_length
+            sentence_groups.append({
+                "words": list(current_words[:split_index]),
+                "word_indices": list(current_indices[:split_index]),
+                "split_reason": best_split_reason if overflow else split_reason,
+            })
+            current_words = list(current_words[split_index:])
+            current_indices = list(current_indices[split_index:])
+            best_split_index = None
+            best_split_score = None
+            best_split_reason = "semantic_score"
+
+        current_words.append(word)
+        current_indices.append(current_word_index)
+
+    if current_words:
+        sentence_groups.append({
+            "words": list(current_words),
+            "word_indices": list(current_indices),
+            "split_reason": "end_of_transcript",
+        })
+
+    merged_groups = []
+    for group in sentence_groups:
+        group_words = list(group.get("words") or [])
+        if not group_words:
+            continue
+        if (
+            merged_groups
+            and (len(group_words) < 3 or len(build_text_from_word_list(group_words)) < 12)
+            and not is_sentence_boundary_token(get_word_token(merged_groups[-1]["words"][-1]))
+        ):
+            merged_groups[-1]["words"].extend(group_words)
+            merged_groups[-1]["word_indices"].extend(list(group.get("word_indices") or []))
+            merged_groups[-1]["split_reason"] = "merged_short_fragment"
+            continue
+        merged_groups.append({
+            "words": list(group_words),
+            "word_indices": list(group.get("word_indices") or []),
+            "split_reason": group.get("split_reason", "word_continuity"),
+        })
+
+    for group in merged_groups:
+        group_words = list(group.get("words") or [])
+        if not group_words:
+            continue
+        group["start"] = float(group_words[0]["start"])
+        group["end"] = float(group_words[-1]["end"])
+        preserved_text = build_preserved_text_from_words(group_words)
+        group["text"] = preserved_text or build_text_from_word_list(group_words) or " "
+
+    return merged_groups
+
+
+def _clone_sentence_group(group, words, word_indices, split_reason):
+    cloned = dict(group)
+    cloned_words = list(words or [])
+    cloned_indices = list(word_indices or [])
+    cloned["words"] = cloned_words
+    cloned["word_indices"] = cloned_indices
+    cloned["split_reason"] = split_reason
+    if cloned_words:
+        cloned["start"] = float(cloned_words[0]["start"])
+        cloned["end"] = float(cloned_words[-1]["end"])
+        cloned["text"] = build_preserved_text_from_words(cloned_words) or build_text_from_word_list(cloned_words) or " "
+    else:
+        cloned["start"] = 0.0
+        cloned["end"] = 0.0
+        cloned["text"] = " "
+    return cloned
+
+
+def _split_group_by_scene_cut(group, scene_cut):
+    words = list(group.get("words") or [])
+    indices = list(group.get("word_indices") or [])
+    if len(words) < 4 or len(indices) != len(words):
+        return [group]
+
+    start = float(words[0].get("start", 0.0))
+    end = float(words[-1].get("end", start))
+    if not (start < float(scene_cut) < end):
+        return [group]
+
+    candidates = []
+    for split_index in range(2, len(words) - 1):
+        left_end = float(words[split_index - 1].get("end", start))
+        right_start = float(words[split_index].get("start", left_end))
+        if right_start < left_end:
+            continue
+        boundary_midpoint = (left_end + right_start) / 2.0
+        score = abs(boundary_midpoint - float(scene_cut))
+        if is_sentence_boundary_token(get_word_token(words[split_index - 1])):
+            score -= 0.08
+        if clean_text(get_word_token(words[split_index])).lower().strip(",.;:!?") in {token.lower() for token in CONNECTOR_WORDS}:
+            score += 0.06
+        candidates.append((score, split_index))
+
+    if not candidates:
+        return [group]
+
+    _, split_index = min(candidates, key=lambda item: item[0])
+    left_words = words[:split_index]
+    right_words = words[split_index:]
+    left_indices = indices[:split_index]
+    right_indices = indices[split_index:]
+    if len(left_words) < 2 or len(right_words) < 2:
+        return [group]
+
+    left = _clone_sentence_group(group, left_words, left_indices, "scene_cut")
+    right = _clone_sentence_group(group, right_words, right_indices, "scene_cut")
+    left["scene_split_after"] = round_timestamp_value(float(scene_cut))
+    right["scene_split_before"] = round_timestamp_value(float(scene_cut))
+    return [left, right]
+
+
+def _split_group_for_duration(group, target_seconds=5.4, max_seconds=7.8):
+    words = list(group.get("words") or [])
+    indices = list(group.get("word_indices") or [])
+    if len(words) < 6:
+        return [group]
+
+    output = []
+    pending_words = words
+    pending_indices = indices
+
+    while pending_words:
+        segment_start = float(pending_words[0].get("start", 0.0))
+        segment_end = float(pending_words[-1].get("end", segment_start))
+        duration = max(segment_end - segment_start, 0.0)
+        if duration <= max_seconds or len(pending_words) < 6:
+            output.append(_clone_sentence_group(group, pending_words, pending_indices, group.get("split_reason", "sentence")))
+            break
+
+        target_boundary = segment_start + target_seconds
+        candidates = []
+        for split_index in range(3, len(pending_words) - 2):
+            left_end = float(pending_words[split_index - 1].get("end", segment_start))
+            left_duration = max(left_end - segment_start, 0.0)
+            if left_duration < IDEAL_CLIP_MIN_SECONDS:
+                continue
+            score = abs(left_end - target_boundary)
+            if is_sentence_boundary_token(get_word_token(pending_words[split_index - 1])):
+                score -= 0.12
+            if clean_text(get_word_token(pending_words[split_index])).lower().strip(",.;:!?") in {token.lower() for token in CONNECTOR_WORDS}:
+                score += 0.08
+            candidates.append((score, split_index))
+
+        if not candidates:
+            output.append(_clone_sentence_group(group, pending_words, pending_indices, group.get("split_reason", "sentence")))
+            break
+
+        _, split_index = min(candidates, key=lambda item: item[0])
+        left_words = pending_words[:split_index]
+        left_indices = pending_indices[:split_index]
+        output.append(_clone_sentence_group(group, left_words, left_indices, "max_duration_split"))
+        pending_words = pending_words[split_index:]
+        pending_indices = pending_indices[split_index:]
+
+    return output
+
+
+def build_hybrid_sentence_groups(sentence_groups, scene_cuts, media_duration):
+    if not sentence_groups:
+        return []
+
+    # Scene changes are treated as strong split hints to align clips with UI/screen transitions.
+    cuts = sorted(
+        round_timestamp_value(float(cut))
+        for cut in (scene_cuts or [])
+        if 0.0 < float(cut) < float(media_duration)
+    )
+
+    scene_split_groups = []
+    for group in sentence_groups:
+        working = [group]
+        for cut in cuts:
+            next_working = []
+            for item in working:
+                next_working.extend(_split_group_by_scene_cut(item, cut))
+            working = next_working
+        scene_split_groups.extend(working)
+
+    duration_groups = []
+    for group in scene_split_groups:
+        duration_groups.extend(
+            _split_group_for_duration(
+                group,
+                target_seconds=IDEAL_CLIP_MAX_SECONDS - 0.6,
+                max_seconds=max(HARD_CLIP_MAX_SECONDS, 7.8),
+            )
+        )
+
+    # Merge tiny leftovers to keep clips natural and readable while preserving chronology.
+    merged = []
+    for group in duration_groups:
+        words = list(group.get("words") or [])
+        if not words:
+            continue
+        if merged:
+            previous = merged[-1]
+            previous_duration = max(float(previous.get("end", 0.0)) - float(previous.get("start", 0.0)), 0.0)
+            current_duration = max(float(group.get("end", 0.0)) - float(group.get("start", 0.0)), 0.0)
+            combined_duration = max(float(group.get("end", 0.0)) - float(previous.get("start", 0.0)), 0.0)
+            if (
+                current_duration < IDEAL_CLIP_MIN_SECONDS
+                and combined_duration <= (HARD_CLIP_MAX_SECONDS + 0.8)
+                and previous_duration < IDEAL_CLIP_MAX_SECONDS
+                and "scene_split_after" not in previous
+                and "scene_split_before" not in group
+            ):
+                previous_words = list(previous.get("words") or [])
+                previous_indices = list(previous.get("word_indices") or [])
+                merged[-1] = _clone_sentence_group(
+                    previous,
+                    previous_words + words,
+                    previous_indices + list(group.get("word_indices") or []),
+                    "merged_short_segment",
+                )
+                continue
+        merged.append(group)
+
+    for index, group in enumerate(merged):
+        group["group_id"] = index
+    return merged
 
 
 def get_group_time_range(words):
@@ -3612,7 +5052,53 @@ def try_force_align_words(audio_path, words, language_code):
         log(message)
         return normalized, {"enabled": True, "used": False, "method": "whisperx_empty", "warning": message}
 
-    return normalize_words(aligned_words), {"enabled": True, "used": True, "method": "whisperx"}
+    # Preserve every Whisper token even if WhisperX misses or misaligns some words.
+    aligned_words = normalize_words(aligned_words)
+    recovered_words = []
+    aligned_pointer = 0
+    fallback_count = 0
+
+    for source_word in normalized:
+        source_token = normalize_token_for_alignment(source_word.get("text", ""))
+        chosen = None
+
+        for probe in range(aligned_pointer, min(len(aligned_words), aligned_pointer + 8)):
+            candidate = aligned_words[probe]
+            candidate_token = normalize_token_for_alignment(candidate.get("text", ""))
+            if not source_token or source_token == candidate_token:
+                chosen = candidate
+                aligned_pointer = probe + 1
+                break
+
+        if chosen is None and aligned_pointer < len(aligned_words):
+            candidate = aligned_words[aligned_pointer]
+            candidate_start = float(candidate.get("start", 0.0))
+            candidate_end = float(candidate.get("end", candidate_start))
+            source_start = float(source_word.get("start", 0.0))
+            source_end = float(source_word.get("end", source_start))
+            if abs(candidate_start - source_start) <= 0.2 and abs(candidate_end - source_end) <= 0.2:
+                chosen = candidate
+                aligned_pointer += 1
+
+        if chosen is None:
+            chosen = source_word
+            fallback_count += 1
+
+        merged = {
+            "text": clean_text(source_word.get("text", "")) or clean_text(chosen.get("text", "")),
+            "start": float(chosen.get("start", source_word.get("start", 0.0))),
+            "end": float(chosen.get("end", source_word.get("end", source_word.get("start", 0.0)))),
+        }
+        if chosen.get("confidence") is not None:
+            merged["confidence"] = float(chosen.get("confidence"))
+        elif source_word.get("confidence") is not None:
+            merged["confidence"] = float(source_word.get("confidence"))
+        recovered_words.append(merged)
+
+    if fallback_count > 0:
+        log(f"WhisperX partial alignment fallback used for {fallback_count} words (preserved from Whisper timing).")
+
+    return normalize_words(recovered_words), {"enabled": True, "used": True, "method": "whisperx_with_fallback"}
 
 
 def build_aligned_segments(
@@ -4733,17 +6219,29 @@ def build_english_clip_paths(output_dir, clip_number, merge_signature):
 
 
 def create_video_only_clip(video_path, segment, output_path):
-    start = format_timestamp_for_ffmpeg(int(segment["start_ms"]))
-    end = format_timestamp_for_ffmpeg(int(segment["end_ms"]))
+    stream_times = get_media_stream_start_times(video_path)
+    stream_offset_seconds = float(stream_times.get("offset_seconds", 0.0))
+    start, end = apply_stream_offset_to_clip_range(
+        float(segment["start"]),
+        float(segment["end"]),
+        stream_offset_seconds,
+    )
+    log(
+        f"Creating video-only clip start={format_seconds_for_ffmpeg(start)} "
+        f"end={format_seconds_for_ffmpeg(end)}"
+    )
     run_command([
         "ffmpeg", "-y",
+        "-ss", format_seconds_for_ffmpeg(start),
+        "-to", format_seconds_for_ffmpeg(end),
         "-i", video_path,
-        "-vf", f"trim=start={start}:end={end},setpts=PTS-STARTPTS",
+        "-map", "0:v:0",
         "-an",
         "-c:v", "libx264",
         "-preset", "fast",
         "-crf", "23",
         "-pix_fmt", "yuv420p",
+        "-avoid_negative_ts", "make_zero",
         output_path,
     ])
 
