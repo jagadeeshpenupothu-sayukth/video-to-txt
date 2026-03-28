@@ -744,6 +744,51 @@
             box-shadow: none;
         }
 
+        .global-timeline-toolbar {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin: 0;
+            padding: 0;
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .timeline-tool-btn.icon-only {
+            width: 34px;
+            min-width: 34px;
+            height: 34px;
+            min-height: 34px;
+            padding: 0;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.94);
+            border: 1px solid rgba(148, 163, 184, 0.26);
+            color: #334155;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+        }
+
+        .timeline-tool-btn.icon-only svg {
+            width: 16px;
+            height: 16px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 1.9;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .timeline-tool-btn.icon-only:hover:not(:disabled) {
+            background: #ffffff;
+            border-color: rgba(100, 116, 139, 0.38);
+        }
+
+        .timeline-tool-btn.icon-only.active {
+            background: rgba(21, 94, 239, 0.12);
+            border-color: rgba(21, 94, 239, 0.44);
+            color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(21, 94, 239, 0.1);
+        }
+
         .player-bottom-actions {
             position: absolute;
             left: 6px;
@@ -858,6 +903,22 @@
             margin-top: 0;
         }
 
+        #waveform-container.tool-split {
+            cursor: crosshair;
+        }
+
+        #waveform-container.tool-delete {
+            cursor: not-allowed;
+        }
+
+        #waveform-container.tool-merge {
+            cursor: grab;
+        }
+
+        #waveform-container.merge-boundary-hover {
+            cursor: pointer;
+        }
+
         #waveform-container.dragging {
             cursor: grabbing;
         }
@@ -909,6 +970,23 @@
             pointer-events: none;
         }
 
+        .waveform-tool-guide {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            margin-left: -1px;
+            background: rgba(17, 24, 39, 0.75);
+            z-index: 5;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.08s ease;
+        }
+
+        .waveform-tool-guide.show {
+            opacity: 1;
+        }
+
         .waveform-clip-segment {
             position: absolute;
             top: 0;
@@ -930,6 +1008,26 @@
             border-radius: 9px;
             box-shadow: none;
             transition: background 0.16s ease, filter 0.16s ease, opacity 0.16s ease;
+        }
+
+        .waveform-clip-index {
+            position: absolute;
+            right: 6px;
+            bottom: 5px;
+            z-index: 2;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 5px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 18px;
+            text-align: center;
+            color: #111827;
+            background: rgba(255, 255, 255, 0.84);
+            border: 1px solid rgba(255, 255, 255, 0.95);
+            pointer-events: none;
+            user-select: none;
         }
 
         .waveform-clip-segment.variant-a .clip-bg {
@@ -962,6 +1060,40 @@
             opacity: 0.54;
         }
 
+        .waveform-content.tool-split .waveform-clip-segment {
+            cursor: crosshair;
+        }
+
+        .waveform-content.tool-delete .waveform-clip-segment {
+            cursor: not-allowed;
+        }
+
+        .waveform-content.tool-delete .waveform-clip-segment:hover .clip-bg {
+            opacity: 0.64;
+            filter: saturate(1.2) brightness(0.95);
+        }
+
+        .waveform-content.tool-merge .waveform-boundary-handle {
+            cursor: pointer;
+        }
+
+        .waveform-content.tool-merge .waveform-boundary-handle::before {
+            background: rgba(17, 24, 39, 0.36);
+            opacity: 1;
+        }
+
+        .waveform-content.tool-merge .waveform-boundary-handle:hover::before {
+            background: rgba(17, 24, 39, 0.68);
+            width: 3px;
+            margin-left: -1px;
+        }
+
+        .waveform-content.tool-merge .waveform-boundary-handle.merge-active-zone::before {
+            background: rgba(21, 94, 239, 0.95);
+            width: 4px;
+            margin-left: -2px;
+        }
+
         .waveform-boundary-handle {
             position: absolute;
             top: 0;
@@ -978,7 +1110,18 @@
         }
 
         .waveform-boundary-handle::before {
-            content: none;
+            content: "";
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 50%;
+            width: 2px;
+            margin-left: -1px;
+            border-radius: 999px;
+            background: rgba(17, 24, 39, 0.18);
+            opacity: 0;
+            transition: opacity 0.12s ease, width 0.12s ease, margin-left 0.12s ease, background 0.12s ease;
+            pointer-events: none;
         }
 
         .waveform-boundary-handle:hover,
@@ -1123,6 +1266,7 @@
             display: flex;
             align-items: center;
             justify-content: flex-end;
+            gap: 10px;
             width: 100%;
         }
 
@@ -3134,11 +3278,6 @@
                             <div class="timeline-hint">Drag clip edges to refine boundaries. Hold Alt for free movement.</div>
                         </div>
                         <div class="timeline-controls">
-                            <div class="timeline-toolbar">
-                                <button class="timeline-tool-btn" id="timelineSplitBtn" onclick="splitClipAtPlayhead()" disabled>Split</button>
-                                <button class="timeline-tool-btn" id="timelineMergeBtn" onclick="mergeSelectedTimelineClips()" disabled>Merge</button>
-                                <button class="timeline-tool-btn" id="timelineAddBtn" onclick="addTimelineSegment()" disabled>Add Segment</button>
-                            </div>
                             <div class="timeline-zoom">
                                 <button class="timeline-zoom-btn" id="timelineZoom1Btn" onclick="setTimelineZoom(1)">1x</button>
                                 <button class="timeline-zoom-btn" id="timelineZoom2Btn" onclick="setTimelineZoom(2)">2x</button>
@@ -3174,6 +3313,7 @@
                                 <div class="waveform-content" id="waveformContent">
                                     <div class="waveform-clip-segments" id="waveformClipSegments"></div>
                                     <div class="waveform-boundary-handles" id="waveformBoundaryHandles"></div>
+                                    <div class="waveform-tool-guide" id="waveformToolGuide" aria-hidden="true"></div>
                                     <div class="waveform-grid" id="waveformGrid"></div>
                                     <div id="waveform" class="empty">Waveform will appear after the video loads</div>
                                 </div>
@@ -3195,6 +3335,57 @@
                                         </div>
                                     </div>
                                     <div class="controls-right">
+                                        <div class="global-timeline-toolbar" id="globalTimelineToolbar" aria-label="Timeline tools">
+                                            <button
+                                                class="timeline-tool-btn icon-only"
+                                                id="timelineSplitBtn"
+                                                onclick="setTimelineTool('split')"
+                                                disabled
+                                                type="button"
+                                                aria-label="Split tool"
+                                                title="Split tool"
+                                            >
+                                                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                                    <circle cx="6" cy="6" r="3"></circle>
+                                                    <circle cx="6" cy="18" r="3"></circle>
+                                                    <path d="M20 4 8.12 15.88"></path>
+                                                    <path d="M14.47 14.48 20 20"></path>
+                                                    <path d="M8.12 8.12 12 12"></path>
+                                                </svg>
+                                            </button>
+                                            <button
+                                                class="timeline-tool-btn icon-only"
+                                                id="timelineDeleteBtn"
+                                                onclick="setTimelineTool('delete')"
+                                                disabled
+                                                type="button"
+                                                aria-label="Delete tool"
+                                                title="Delete tool"
+                                            >
+                                                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                                    <path d="M3 6h18"></path>
+                                                    <path d="M8 6V4h8v2"></path>
+                                                    <path d="M8 6v14h8V6"></path>
+                                                    <path d="M10 10v6"></path>
+                                                    <path d="M14 10v6"></path>
+                                                </svg>
+                                            </button>
+                                            <button
+                                                class="timeline-tool-btn icon-only"
+                                                id="timelineMergeBtn"
+                                                onclick="setTimelineTool('merge')"
+                                                disabled
+                                                type="button"
+                                                aria-label="Merge tool"
+                                                title="Merge tool"
+                                            >
+                                                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                                    <path d="M10 7 7 4a4 4 0 1 0-5.66 5.66l3 3"></path>
+                                                    <path d="m14 17 3 3a4 4 0 0 0 5.66-5.66l-3-3"></path>
+                                                    <path d="M8.5 15.5 15.5 8.5"></path>
+                                                </svg>
+                                            </button>
+                                        </div>
                                         <div class="waveform-zoom-controls">
                                             <label class="waveform-zoom-label" for="waveformZoomSelect">Zoom</label>
                                             <select class="waveform-zoom-select" id="waveformZoomSelect">
@@ -3367,6 +3558,12 @@ let selectedFileName = "";
 let videoPlayer;
 let transcriptWords = [];
 let activeClip = null;
+let clipInteractionState = {
+    activeClipIndex: null,
+    lastClickedTimestamp: 0,
+    wasPlayingOnLastClick: false,
+    lastPausedTimestamp: 0,
+};
 let clipPlayback = {
     active: false,
     start: 0,
@@ -3381,6 +3578,7 @@ let isFullVideoMode = false;
 let lastSyncUpdateAt = 0;
 let timelineVisible = false;
 let timelineDragState = null;
+let activeTimelineTool = null;
 let timelineZoomLevel = 1;
 let timelineSelectedIndices = [];
 let timelinePlayheadRaf = null;
@@ -3412,12 +3610,17 @@ let waveformOverlayRenderToken = 0;
 let waveformUiUpdateRaf = null;
 let lastWaveformUiUpdateAt = 0;
 let lastWaveformActiveClipIndex = null;
+let activeMergeBoundaryIndex = null;
 let isWaveformZooming = false;
 let timelineRenderRaf = null;
 let timelineRenderToken = 0;
 const EDIT_ACTIVITY_IDLE_MS = 90000;
 const SEGMENT_STOP_EPSILON = 0.01;
-const FRAME_MARGIN = 0.12;
+const MERGE_BOUNDARY_TIME_TOLERANCE = 0.08;
+const MERGE_BOUNDARY_HOVER_TOLERANCE_PX = 10;
+const CLIP_MIN_DURATION_SECONDS = 0.35;
+const CLIP_CLICK_RECENT_THRESHOLD_MS = 1400;
+const CLIP_CLICK_INACTIVITY_MS = 3500;
 const AUTO_TRANSCRIBE_DELAY_MS = 3000;
 const translationTimers = new Map();
 const translationCache = new Map();
@@ -3501,6 +3704,8 @@ window.onload = async () => {
     const waveformZoomSelect = document.getElementById("waveformZoomSelect");
     waveformZoomSelect?.addEventListener("change", handleWaveformZoomSelect);
     waveformContainer?.addEventListener("click", handleWaveformClickSeek);
+    waveformContainer?.addEventListener("mousemove", handleWaveformToolHover);
+    waveformContainer?.addEventListener("mouseleave", handleWaveformToolLeave);
     waveformContainer?.addEventListener("mousedown", startWaveformPan);
     waveformContainer?.addEventListener("scroll", handleWaveformContainerScroll, { passive: true });
     window.addEventListener("mousemove", handleWaveformPanMove);
@@ -5628,12 +5833,32 @@ function performTimelineRender() {
                     return;
                 }
 
+                if (handleTimelineToolClipClick(currentIndex, Number(videoPlayer?.currentTime || segment.start))) {
+                    return;
+                }
+
                 toggleTimelineSelection(currentIndex, event);
                 seekToClip(currentIndex, true);
             });
 
             block.querySelectorAll(".timeline-handle").forEach((handle) => {
-                handle.addEventListener("pointerdown", (event) => startTimelineDrag(event, currentIndex, handle.dataset.edge));
+                handle.addEventListener("pointerdown", (event) => {
+                    if (activeTimelineTool === "merge" && handle.dataset.edge === "right") {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        const didMerge = mergeClips(currentIndex, currentIndex + 1);
+                        if (!didMerge) {
+                            updateTimelinePreview("Only adjacent clips can be merged.");
+                        }
+                        return;
+                    }
+                    if (activeTimelineTool) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        return;
+                    }
+                    startTimelineDrag(event, currentIndex, handle.dataset.edge);
+                });
             });
 
             fragment.appendChild(block);
@@ -5896,103 +6121,195 @@ function toggleTimelineSelection(index, event) {
     refreshUiState();
 }
 
-function splitClipAtPlayhead() {
-    const splitIndex = activeSyncedClipIndex ?? timelineSelectedIndices[0];
-    const target = segmentsData[splitIndex];
-    if (!target) {
+function getEditorMinClipDuration() {
+    return Math.max(CLIP_MIN_DURATION_SECONDS, getTimelineSnapStep());
+}
+
+function clampClipTimeToBounds(value, minValue, maxValue) {
+    const clamped = Math.min(Math.max(Number(value) || 0, Number(minValue) || 0), Number(maxValue) || 0);
+    return roundTimelineValue(clamped);
+}
+
+function normalizeSegmentOrderAndBounds() {
+    if (!segmentsData.length) {
         return;
     }
 
-    const splitPoint = normalizeTimelineTime(videoPlayer.currentTime);
-    const minimumDuration = getTimelineSnapStep();
+    segmentsData.sort((a, b) => Number(a.start) - Number(b.start));
+    const minDuration = getEditorMinClipDuration();
+    const duration = getTimelineDuration();
 
-    if (splitPoint <= Number(target.start) + minimumDuration || splitPoint >= Number(target.end) - minimumDuration) {
-        updateTimelinePreview("Move the playhead inside a clip before splitting.");
+    for (let index = 0; index < segmentsData.length; index += 1) {
+        const segment = segmentsData[index];
+        segment.start = roundTimelineValue(Math.max(0, Number(segment.start) || 0));
+        segment.end = roundTimelineValue(Math.max(segment.start + minDuration, Number(segment.end) || segment.start + minDuration));
+        if (index > 0) {
+            const previous = segmentsData[index - 1];
+            if (Number(segment.start) !== Number(previous.end)) {
+                segment.start = roundTimelineValue(Number(previous.end));
+            }
+        }
+        if (Number(segment.end) <= Number(segment.start)) {
+            segment.end = roundTimelineValue(Number(segment.start) + minDuration);
+        }
+        if (Number(segment.end) > duration) {
+            segment.end = roundTimelineValue(duration);
+        }
+        if (Number(segment.end) <= Number(segment.start)) {
+            segment.end = roundTimelineValue(Number(segment.start) + Math.max(getTimelineSnapStep(), 0.001));
+        }
+    }
+}
+
+function finalizeClipStructureChange(options = {}) {
+    const {
+        selectedIndices = [],
+        shouldSeek = false,
+    } = options;
+    clipTimestampDrafts.clear();
+    normalizeSegmentOrderAndBounds();
+    decorateSegmentsForEnglishAudio();
+    timelineSelectedIndices = selectedIndices.filter((index) => index >= 0 && index < segmentsData.length);
+    transcriptDirty = true;
+    generatedSummary.segments = segmentsData.length;
+    markAllEnglishAudioDirty();
+    renderSegments();
+    requestTimelineRender(true);
+    scheduleWaveformClipSegmentsRender({ immediate: true });
+    refreshUiState();
+    saveAppState();
+
+    if (shouldSeek && timelineSelectedIndices.length) {
+        const focusIndex = timelineSelectedIndices[0];
+        const focusClip = segmentsData[focusIndex];
+        if (focusClip && videoPlayer) {
+            videoPlayer.currentTime = Number(focusClip.start);
+            syncActiveClipFromVideo(true);
+            updateCustomVideoPlayerUi();
+        }
+    }
+}
+
+function deleteClip(index) {
+    if (!segmentsData[index]) {
         return;
+    }
+
+    if (segmentsData.length <= 1) {
+        updateTimelinePreview("At least one clip is required.");
+        return;
+    }
+
+    const removed = segmentsData[index];
+    const previous = segmentsData[index - 1] || null;
+    const next = segmentsData[index + 1] || null;
+
+    if (previous) {
+        previous.end = roundTimelineValue(Number(removed.end));
+        previous.text = rebuildSegmentTextFromWords(transcriptWords, previous, previous.text || "");
+    } else if (next) {
+        next.start = roundTimelineValue(Number(removed.start));
+        next.text = rebuildSegmentTextFromWords(transcriptWords, next, next.text || "");
+    }
+
+    segmentsData.splice(index, 1);
+    const nextSelection = previous ? index - 1 : 0;
+    finalizeClipStructureChange({
+        selectedIndices: [Math.max(0, Math.min(nextSelection, segmentsData.length - 1))],
+        shouldSeek: true,
+    });
+}
+
+function splitAt(position) {
+    const time = normalizeTimelineTime(position);
+    const clipIndex = getActiveClipIndex(time);
+    if (clipIndex === null || clipIndex === undefined) {
+        return false;
+    }
+
+    const target = segmentsData[clipIndex];
+    if (!target) {
+        return false;
+    }
+
+    const minDuration = getEditorMinClipDuration();
+    const clipStart = Number(target.start);
+    const clipEnd = Number(target.end);
+    const splitPoint = clampClipTimeToBounds(time, clipStart + minDuration, clipEnd - minDuration);
+    if (splitPoint <= clipStart + minDuration || splitPoint >= clipEnd - minDuration) {
+        return false;
     }
 
     const leftClip = { ...target, end: roundTimelineValue(splitPoint) };
-    const rightClip = { ...target, start: leftClip.end };
-    leftClip.text = rebuildSegmentTextFromWords(transcriptWords, leftClip, target.text);
-    rightClip.text = rebuildSegmentTextFromWords(transcriptWords, rightClip, target.text);
-    segmentsData.splice(splitIndex, 1, leftClip, rightClip);
-    clipTimestampDrafts.clear();
-    decorateSegmentsForEnglishAudio();
-    timelineSelectedIndices = [splitIndex, splitIndex + 1];
-    transcriptDirty = true;
-    generatedSummary.segments = segmentsData.length;
-    markAllEnglishAudioDirty();
-    renderSegments();
-    requestTimelineRender(true);
-    refreshUiState();
-    saveAppState();
+    const rightClip = { ...target, start: roundTimelineValue(splitPoint) };
+    leftClip.text = rebuildSegmentTextFromWords(transcriptWords, leftClip, target.text || "");
+    rightClip.text = rebuildSegmentTextFromWords(transcriptWords, rightClip, target.text || "");
+    segmentsData.splice(clipIndex, 1, leftClip, rightClip);
+    finalizeClipStructureChange({
+        selectedIndices: [clipIndex, clipIndex + 1],
+        shouldSeek: true,
+    });
+    return true;
 }
 
-function mergeSelectedTimelineClips() {
-    if (timelineSelectedIndices.length !== 2) {
-        updateTimelinePreview("Select two adjacent clips to merge.");
-        return;
+function mergeClips(leftIndex, rightIndex) {
+    if (!Number.isInteger(leftIndex) || !Number.isInteger(rightIndex)) {
+        return false;
+    }
+    if (rightIndex !== leftIndex + 1) {
+        return false;
     }
 
-    const [firstIndex, secondIndex] = [...timelineSelectedIndices].sort((a, b) => a - b);
-    if (secondIndex !== firstIndex + 1) {
-        updateTimelinePreview("Only adjacent clips can be merged.");
-        return;
+    const leftClip = segmentsData[leftIndex];
+    const rightClip = segmentsData[rightIndex];
+    if (!leftClip || !rightClip) {
+        return false;
     }
 
-    const firstClip = segmentsData[firstIndex];
-    const secondClip = segmentsData[secondIndex];
-    if (!firstClip || !secondClip) {
-        return;
-    }
-
-    const mergedClip = {
-        ...firstClip,
-        start: firstClip.start,
-        end: secondClip.end
+    const merged = {
+        ...leftClip,
+        start: Number(leftClip.start),
+        end: Number(rightClip.end),
     };
-    mergedClip.text = rebuildSegmentTextFromWords(transcriptWords, mergedClip, `${firstClip.text} ${secondClip.text}`);
-    segmentsData.splice(firstIndex, 2, mergedClip);
-    clipTimestampDrafts.clear();
-    decorateSegmentsForEnglishAudio();
-    timelineSelectedIndices = [firstIndex];
-    transcriptDirty = true;
-    generatedSummary.segments = segmentsData.length;
-    markAllEnglishAudioDirty();
-    renderSegments();
-    requestTimelineRender(true);
-    refreshUiState();
-    saveAppState();
+    merged.text = rebuildSegmentTextFromWords(
+        transcriptWords,
+        merged,
+        `${leftClip.text || ""} ${rightClip.text || ""}`.trim()
+    );
+    segmentsData.splice(leftIndex, 2, merged);
+    finalizeClipStructureChange({
+        selectedIndices: [leftIndex],
+        shouldSeek: true,
+    });
+    return true;
 }
 
-function addTimelineSegment() {
-    const duration = getTimelineDuration();
-    const lastClip = segmentsData[segmentsData.length - 1];
-    const start = lastClip ? Number(lastClip.end) : 0;
-    const defaultDuration = 1;
-    const end = roundTimelineValue(Math.min(start + defaultDuration, duration));
+function setTimelineTool(tool) {
+    const allowedTools = new Set(["split", "delete", "merge"]);
+    if (!allowedTools.has(tool)) {
+        activeTimelineTool = null;
+    } else if (activeTimelineTool === tool) {
+        activeTimelineTool = null;
+    } else {
+        activeTimelineTool = tool;
+    }
 
-    if (end <= start) {
-        updateTimelinePreview("No room left at the end of the timeline to add a segment.");
+    hideWaveformToolGuide();
+    clearWaveformMergeBoundaryHighlight();
+    refreshUiState();
+
+    if (!activeTimelineTool) {
+        updateTimelinePreview("Tool cleared. Click clips to play.");
         return;
     }
 
-    const newClip = {
-        start,
-        end,
-        text: rebuildSegmentTextFromWords(transcriptWords, { start, end }, "")
-    };
-    segmentsData.push(newClip);
-    clipTimestampDrafts.clear();
-    decorateSegmentsForEnglishAudio();
-    timelineSelectedIndices = [segmentsData.length - 1];
-    transcriptDirty = true;
-    generatedSummary.segments = segmentsData.length;
-    markAllEnglishAudioDirty();
-    renderSegments();
-    requestTimelineRender(true);
-    refreshUiState();
-    saveAppState();
+    if (activeTimelineTool === "split") {
+        updateTimelinePreview("Split tool active: click inside a clip to split at that timestamp.");
+    } else if (activeTimelineTool === "delete") {
+        updateTimelinePreview("Delete tool active: click a clip to delete it.");
+    } else if (activeTimelineTool === "merge") {
+        updateTimelinePreview("Merge tool active: click a boundary between adjacent clips.");
+    }
 }
 
 function setTimelineZoom(level) {
@@ -6002,7 +6319,7 @@ function setTimelineZoom(level) {
 }
 
 function handleTimelineTrackClick(event) {
-    if (timelineDragState || event.target.closest(".timeline-block")) {
+    if (timelineDragState || event.target.closest(".timeline-block") || activeTimelineTool) {
         return;
     }
 
@@ -6686,13 +7003,31 @@ function refreshUiState() {
     stepOne.classList.toggle("upload-ready", hasUploadSelection);
     document.getElementById("timelinePanel").classList.toggle("show", timelineVisible && hasProcessed);
     document.getElementById("timelineToggleBtn").innerText = timelineVisible ? "Hide Timeline" : "Show Timeline";
-    document.getElementById("timelineSplitBtn").disabled = !(hasProcessed && (activeSyncedClipIndex !== null || timelineSelectedIndices.length));
-    document.getElementById("timelineMergeBtn").disabled = !(hasProcessed && timelineSelectedIndices.length === 2);
-    document.getElementById("timelineAddBtn").disabled = !hasProcessed;
+    document.getElementById("timelineSplitBtn").disabled = !hasProcessed;
+    document.getElementById("timelineDeleteBtn").disabled = !hasProcessed;
+    document.getElementById("timelineMergeBtn").disabled = !hasProcessed;
+    document.getElementById("timelineSplitBtn").classList.toggle("active", activeTimelineTool === "split");
+    document.getElementById("timelineDeleteBtn").classList.toggle("active", activeTimelineTool === "delete");
+    document.getElementById("timelineMergeBtn").classList.toggle("active", activeTimelineTool === "merge");
     document.getElementById("timelineZoom1Btn").classList.toggle("active", timelineZoomLevel === 1);
     document.getElementById("timelineZoom2Btn").classList.toggle("active", timelineZoomLevel === 2);
     document.getElementById("timelineZoom5Btn").classList.toggle("active", timelineZoomLevel === 5);
     document.getElementById("translateToggleBtn").classList.toggle("active", showAllTelugu);
+    const waveformContent = document.getElementById("waveformContent");
+    const waveformContainer = document.getElementById("waveform-container");
+    if (waveformContent) {
+        waveformContent.classList.toggle("tool-split", activeTimelineTool === "split");
+        waveformContent.classList.toggle("tool-delete", activeTimelineTool === "delete");
+        waveformContent.classList.toggle("tool-merge", activeTimelineTool === "merge");
+    }
+    if (waveformContainer) {
+        waveformContainer.classList.toggle("tool-split", activeTimelineTool === "split");
+        waveformContainer.classList.toggle("tool-delete", activeTimelineTool === "delete");
+        waveformContainer.classList.toggle("tool-merge", activeTimelineTool === "merge");
+        if (activeTimelineTool !== "merge") {
+            waveformContainer.classList.remove("merge-boundary-hover");
+        }
+    }
 
     const playPauseBtn = document.getElementById("playPauseBtn");
     if (playPauseBtn) {
@@ -7478,8 +7813,148 @@ function stopCustomPlayerDrag() {
     window.removeEventListener("pointerup", stopCustomPlayerDrag);
 }
 
+function hideWaveformToolGuide() {
+    const guide = document.getElementById("waveformToolGuide");
+    if (!guide) {
+        return;
+    }
+    guide.classList.remove("show");
+}
+
+function setActiveWaveformMergeBoundary(index = null) {
+    activeMergeBoundaryIndex = Number.isInteger(index) ? index : null;
+    const container = document.getElementById("waveform-container");
+    container?.classList.toggle("merge-boundary-hover", activeTimelineTool === "merge" && activeMergeBoundaryIndex !== null);
+    document.querySelectorAll(".waveform-boundary-handle").forEach((handle) => {
+        const handleIndex = Number(handle.dataset.boundaryIndex);
+        handle.classList.toggle("merge-active-zone", activeTimelineTool === "merge" && handleIndex === activeMergeBoundaryIndex);
+    });
+}
+
+function clearWaveformMergeBoundaryHighlight() {
+    setActiveWaveformMergeBoundary(null);
+}
+
+function getMergeBoundaryIndexFromPointer(event) {
+    const container = document.getElementById("waveform-container");
+    const content = document.getElementById("waveformContent");
+    const duration = Number(videoPlayer?.duration || getTimelineDuration() || 0);
+    if (!container || !content || duration <= 0 || segmentsData.length < 2) {
+        return null;
+    }
+
+    const rect = container.getBoundingClientRect();
+    const pointerX = (event.clientX - rect.left) + container.scrollLeft;
+    const contentWidth = Math.max(Number(content.scrollWidth || content.clientWidth || rect.width), 1);
+
+    let nearestIndex = null;
+    let nearestDelta = Number.POSITIVE_INFINITY;
+
+    for (let index = 0; index < segmentsData.length - 1; index += 1) {
+        const currentEnd = Number(segmentsData[index]?.end || 0);
+        const nextStart = Number(segmentsData[index + 1]?.start || currentEnd);
+        if (Math.abs(nextStart - currentEnd) > MERGE_BOUNDARY_TIME_TOLERANCE) {
+            continue;
+        }
+
+        const boundaryX = (Math.max(0, Math.min(currentEnd, duration)) / duration) * contentWidth;
+        const delta = Math.abs(pointerX - boundaryX);
+        if (delta < nearestDelta) {
+            nearestDelta = delta;
+            nearestIndex = index;
+        }
+    }
+
+    return nearestDelta <= MERGE_BOUNDARY_HOVER_TOLERANCE_PX ? nearestIndex : null;
+}
+
+function handleWaveformToolLeave() {
+    hideWaveformToolGuide();
+    clearWaveformMergeBoundaryHighlight();
+}
+
+function handleWaveformToolHover(event) {
+    const content = document.getElementById("waveformContent");
+    const guide = document.getElementById("waveformToolGuide");
+    if (!content || !guide) {
+        return;
+    }
+
+    content.classList.toggle("tool-split", activeTimelineTool === "split");
+    content.classList.toggle("tool-delete", activeTimelineTool === "delete");
+    content.classList.toggle("tool-merge", activeTimelineTool === "merge");
+
+    if (activeTimelineTool === "merge") {
+        hideWaveformToolGuide();
+        const mergeBoundaryIndex = getMergeBoundaryIndexFromPointer(event);
+        setActiveWaveformMergeBoundary(mergeBoundaryIndex);
+        return;
+    }
+
+    clearWaveformMergeBoundaryHighlight();
+    if (activeTimelineTool !== "split") {
+        hideWaveformToolGuide();
+        return;
+    }
+
+    const clipNode = event.target.closest(".waveform-clip-segment");
+    if (!clipNode) {
+        hideWaveformToolGuide();
+        return;
+    }
+
+    const container = document.getElementById("waveform-container");
+    if (!container) {
+        hideWaveformToolGuide();
+        return;
+    }
+
+    const rect = container.getBoundingClientRect();
+    const x = (event.clientX - rect.left) + container.scrollLeft;
+    const contentWidth = Number(document.getElementById("waveformContent")?.scrollWidth || rect.width || 1);
+    const ratio = Math.min(Math.max(x / Math.max(contentWidth, 1), 0), 1);
+    guide.style.left = `${ratio * 100}%`;
+    guide.classList.add("show");
+}
+
+function handleTimelineToolClipClick(index, clickTime = null) {
+    if (!segmentsData[index]) {
+        return false;
+    }
+
+    if (activeTimelineTool === "split") {
+        const position = Number.isFinite(Number(clickTime))
+            ? Number(clickTime)
+            : Number(videoPlayer?.currentTime || segmentsData[index].start);
+        const didSplit = splitAt(position);
+        if (!didSplit) {
+            updateTimelinePreview("Split point must stay inside clip boundaries.");
+        }
+        return true;
+    }
+
+    if (activeTimelineTool === "delete") {
+        const confirmDelete = window.confirm("Do you want to delete this clip?");
+        if (!confirmDelete) {
+            return true;
+        }
+        deleteClip(index);
+        return true;
+    }
+
+    if (activeTimelineTool === "merge") {
+        return true;
+    }
+
+    return false;
+}
+
 function handleWaveformClickSeek(event) {
     if (customPlayerDragging || waveformPanDragging || suppressWaveformClickSeek || !videoPlayer) {
+        return;
+    }
+
+    if (activeTimelineTool) {
         return;
     }
 
@@ -7603,7 +8078,10 @@ function renderWaveformClipSegments(renderToken = waveformOverlayRenderToken) {
             node.dataset.index = String(currentIndex);
             node.style.left = `${(start / duration) * 100}%`;
             node.style.width = `max(calc(${width}% - 0.5px), 12px)`;
-            node.innerHTML = `<div class="clip-bg" aria-hidden="true"></div>`;
+            node.innerHTML = `
+                <div class="clip-bg" aria-hidden="true"></div>
+                <span class="waveform-clip-index" aria-hidden="true">${currentIndex + 1}</span>
+            `;
             node.querySelector(".clip-bg").style.backgroundColor = tint;
             node.title = `Play Clip ${currentIndex + 1}`;
             node.setAttribute("role", "button");
@@ -7616,6 +8094,10 @@ function renderWaveformClipSegments(renderToken = waveformOverlayRenderToken) {
             node.addEventListener("click", (event) => {
                 event.preventDefault();
                 event.stopPropagation();
+                const clickTime = getCustomPlayerTimeFromPointer(event);
+                if (handleTimelineToolClipClick(currentIndex, clickTime)) {
+                    return;
+                }
                 onClipClick(currentIndex);
             });
             node.addEventListener("keydown", (event) => {
@@ -7633,16 +8115,34 @@ function renderWaveformClipSegments(renderToken = waveformOverlayRenderToken) {
                 const boundaryHandle = document.createElement("button");
                 boundaryHandle.type = "button";
                 boundaryHandle.className = "waveform-boundary-handle";
+                boundaryHandle.dataset.boundaryIndex = String(currentIndex);
                 boundaryHandle.style.left = `${(end / duration) * 100}%`;
                 boundaryHandle.title = `Drag to adjust Clip ${currentIndex + 1} end and Clip ${currentIndex + 2} start`;
                 boundaryHandle.setAttribute("aria-label", `Adjust boundary between Clip ${currentIndex + 1} and Clip ${currentIndex + 2}`);
-                boundaryHandle.addEventListener("pointerdown", (event) => startWaveformBoundaryDrag(event, currentIndex));
+                boundaryHandle.addEventListener("pointerdown", (event) => {
+                    if (activeTimelineTool === "merge") {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        const didMerge = mergeClips(currentIndex, currentIndex + 1);
+                        if (!didMerge) {
+                            updateTimelinePreview("Only adjacent clips can be merged.");
+                        }
+                        return;
+                    }
+                    if (activeTimelineTool) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        return;
+                    }
+                    startWaveformBoundaryDrag(event, currentIndex);
+                });
                 handleFragment.appendChild(boundaryHandle);
             }
         }
 
         container.appendChild(clipFragment);
         handlesContainer.appendChild(handleFragment);
+        setActiveWaveformMergeBoundary(activeMergeBoundaryIndex);
         lastWaveformActiveClipIndex = activeSyncedClipIndex;
 
         if (index < segmentsData.length) {
@@ -7899,7 +8399,7 @@ function setActiveClip(index) {
 
     const start = Number(clip.start);
     const end = Number(clip.end);
-    const safeEnd = Math.max(start, end - FRAME_MARGIN);
+    const safeEnd = Math.max(start, end - SEGMENT_STOP_EPSILON);
     activeClip = {
         index,
         start,
@@ -7927,7 +8427,7 @@ function playClip(start, end) {
 
     clipPlayback.start = Number(start || 0);
     clipPlayback.end = Number(end || 0);
-    clipPlayback.safeEnd = Math.max(clipPlayback.start, clipPlayback.end - FRAME_MARGIN);
+    clipPlayback.safeEnd = Math.max(clipPlayback.start, clipPlayback.end - SEGMENT_STOP_EPSILON);
 
     videoPlayer.currentTime = clipPlayback.start;
     activeSegmentStopTimeoutId = window.setTimeout(() => {
@@ -7966,6 +8466,7 @@ function startClipPlayback(index, options = {}) {
     videoPlayer.currentTime = resolvedStartTime;
     updateActiveClipUi(index, { shouldScroll });
     setButtonPlaying(index, true);
+    markClipInteractionPlayback(index, true);
     syncPlayPauseLabel();
     setVideoOutputMuted(false);
     playClip(resolvedStartTime, clipEnd);
@@ -8042,16 +8543,80 @@ function playNextClip() {
     playAdjacentClip(1);
 }
 
+function markClipInteractionPlayback(index, isPlaying) {
+    clipInteractionState.activeClipIndex = Number.isInteger(index) ? index : clipInteractionState.activeClipIndex;
+    clipInteractionState.wasPlayingOnLastClick = Boolean(isPlaying);
+    if (!isPlaying) {
+        clipInteractionState.lastPausedTimestamp = Date.now();
+    }
+}
+
+function handleClipClickPlayback(index) {
+    const segment = segmentsData[index];
+    if (!segment || !videoPlayer) {
+        return;
+    }
+
+    const now = Date.now();
+    const sameClip = clipInteractionState.activeClipIndex === index;
+    const isPlayingNow = Boolean(!videoPlayer.paused && activeClip?.index === index);
+    const clickGap = now - Number(clipInteractionState.lastClickedTimestamp || 0);
+    const pauseGap = now - Number(clipInteractionState.lastPausedTimestamp || 0);
+
+    if (!sameClip) {
+        startClipPlayback(index, {
+            startTime: Number(segment.start),
+            shouldScroll: true,
+        });
+        clipInteractionState.activeClipIndex = index;
+        clipInteractionState.lastClickedTimestamp = now;
+        clipInteractionState.wasPlayingOnLastClick = true;
+        return;
+    }
+
+    if (isPlayingNow) {
+        videoPlayer.pause();
+        markClipInteractionPlayback(index, false);
+        clipInteractionState.lastClickedTimestamp = now;
+        return;
+    }
+
+    const recentClick = clickGap <= CLIP_CLICK_RECENT_THRESHOLD_MS;
+    const recentPause = pauseGap <= CLIP_CLICK_RECENT_THRESHOLD_MS;
+    const inactive = pauseGap >= CLIP_CLICK_INACTIVITY_MS;
+
+    if ((recentClick || recentPause) && !inactive) {
+        const start = Number(segment.start);
+        const end = Number(segment.end);
+        const current = Number(videoPlayer.currentTime || start);
+        const resumeAt = Math.min(Math.max(current, start), end - getTimelineSnapStep());
+        startClipPlayback(index, {
+            startTime: resumeAt,
+            shouldScroll: true,
+        });
+        clipInteractionState.lastClickedTimestamp = now;
+        clipInteractionState.wasPlayingOnLastClick = true;
+        return;
+    }
+
+    startClipPlayback(index, {
+        startTime: Number(segment.start),
+        shouldScroll: true,
+    });
+    clipInteractionState.lastClickedTimestamp = now;
+    clipInteractionState.wasPlayingOnLastClick = true;
+}
+
 function onClipClick(index) {
     if (!hasPlayableVideo() || !segmentsData[index]) {
         return;
     }
 
     clearError();
-    startClipPlayback(index, {
-        startTime: Number(segmentsData[index].start),
-        shouldScroll: true,
-    });
+    if (handleTimelineToolClipClick(index, Number(videoPlayer?.currentTime || segmentsData[index].start))) {
+        return;
+    }
+    handleClipClickPlayback(index);
 }
 
 function toggleMainPlayback() {
@@ -8461,7 +9026,8 @@ function handleVideoSeeking() {
     clipPlayback.active = false;
 
     if (activeClip && Number(videoPlayer.currentTime || 0) > Number(activeClip.end || 0)) {
-        videoPlayer.currentTime = Number(activeClip.end || 0);
+        const clampedStop = Math.max(Number(activeClip.start || 0), Number(activeClip.end || 0) - SEGMENT_STOP_EPSILON);
+        videoPlayer.currentTime = clampedStop;
     }
 }
 
@@ -8525,7 +9091,7 @@ function toggleSegmentPlayback(index, start, end) {
     }
 
     clearError();
-    seekToClip(index, true);
+    handleClipClickPlayback(index);
 }
 
 function handleSegmentPlayback() {
@@ -8560,11 +9126,14 @@ function stopSegmentPlaybackAtBoundary() {
         return;
     }
 
+    const clipStart = Number(activeClip.start || 0);
     const clipEnd = Number(activeClip.end || 0);
+    const stopAt = Math.max(clipStart, clipEnd - SEGMENT_STOP_EPSILON);
     clipPlayback.active = false;
     videoPlayer.pause();
-    videoPlayer.currentTime = clipEnd;
+    videoPlayer.currentTime = stopAt;
     stopPreciseSegmentPlaybackMonitor();
+    markClipInteractionPlayback(activeClip?.index ?? null, false);
     resetActivePlayback();
     syncPlayPauseLabel();
     updateCustomVideoPlayerUi();
@@ -8622,6 +9191,9 @@ function startPreciseSegmentPlaybackMonitor() {
 
 function handleClipPlaybackPause() {
     clipPlayback.active = false;
+    if (activeClip?.index !== undefined && activeClip?.index !== null) {
+        markClipInteractionPlayback(activeClip.index, false);
+    }
     if (activeEnglishClipAudio && !activeEnglishClipAudio.paused) {
         stopEnglishClipPlayback();
     }
@@ -8631,6 +9203,9 @@ function resetActivePlayback() {
     stopPreciseSegmentPlaybackMonitor();
     clearSegmentStopTimeout();
     clipPlayback.active = false;
+    if (activeClip?.index !== undefined && activeClip?.index !== null) {
+        markClipInteractionPlayback(activeClip.index, false);
+    }
     resetButtonState(activeClip?.index ?? null);
     activeClip = null;
 }
