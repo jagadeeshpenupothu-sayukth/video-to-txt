@@ -7313,21 +7313,12 @@ async function downloadFiles() {
     saveAppState();
 
     try {
-        const response = await fetch(`/download?video_path=${encodeURIComponent(videoPath)}`);
-
-        if (!response.ok) {
-            throw new Error("Download failed.");
-        }
-
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
         const anchor = document.createElement("a");
-        anchor.href = url;
-        anchor.download = "clips.zip";
+        anchor.href = `/download?video_path=${encodeURIComponent(videoPath)}`;
+        anchor.download = "";
         document.body.appendChild(anchor);
         anchor.click();
         anchor.remove();
-        window.URL.revokeObjectURL(url);
         sessionTiming.completedAt = Date.now();
         renderTimingSummary();
         saveAppState();

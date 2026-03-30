@@ -24,8 +24,6 @@ from fastapi.templating import Jinja2Templates
 from deep_translator import GoogleTranslator
 from faster_whisper import WhisperModel
 
-from xtts_service import SPEAKER_PATH, tts, tts_lock
-
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 DEV_AUTO_RELOAD = os.getenv("AUTO_RELOAD", "1").strip().lower() not in {"0", "false", "no", "off"}
@@ -118,6 +116,7 @@ ENGLISH_OUTPUT_DIRNAME = "english_output"
 MERGED_VIDEO_FILE_PREFIX = "english_video"
 MERGED_AUDIO_FILE_PREFIX = "english_audio"
 SMALL_VIDEO_EXTENSION_THRESHOLD_SECONDS = 1.0
+ENGLISH_AUDIO_ENABLED = False
 FINAL_VIDEO_BUFFER_SECONDS = 2.0
 FINAL_VIDEO_MAX_OVERAGE_SECONDS = 3.0
 FINAL_VIDEO_TARGET_OVERAGE_SECONDS = 2.0
@@ -186,9 +185,6 @@ clip_text_model = None
 clip_text_model_lock = threading.Lock()
 clip_text_transcribe_lock = threading.Lock()
 audio_generation_state = {}
-audio_generation_state_lock = threading.Lock()
-audio_generation_workers = {}
-audio_generation_workers_lock = threading.Lock()
 translation_cache = {}
 translation_cache_lock = threading.Lock()
 
@@ -231,24 +227,21 @@ def build_audio_job_key(video_path, clip_id, voice_style):
 
 def set_audio_generation_state(video_path, clip_id, voice_style, **updates):
     job_key = build_audio_job_key(video_path, clip_id, voice_style)
-    with audio_generation_state_lock:
-        current = audio_generation_state.get(job_key, {})
-        current.update(updates)
-        current["updated_at"] = time.time()
-        audio_generation_state[job_key] = current
-        return dict(current)
+    current = audio_generation_state.get(job_key, {})
+    current.update(updates)
+    current["updated_at"] = time.time()
+    audio_generation_state[job_key] = current
+    return dict(current)
 
 
 def get_audio_generation_state(video_path, clip_id, voice_style):
     job_key = build_audio_job_key(video_path, clip_id, voice_style)
-    with audio_generation_state_lock:
-        return dict(audio_generation_state.get(job_key, {}))
+    return dict(audio_generation_state.get(job_key, {}))
 
 
 def clear_audio_generation_state(video_path, clip_id, voice_style):
     job_key = build_audio_job_key(video_path, clip_id, voice_style)
-    with audio_generation_state_lock:
-        audio_generation_state.pop(job_key, None)
+    audio_generation_state.pop(job_key, None)
 
 
 def build_translation_cache_key(text, target_lang):
@@ -2604,7 +2597,8 @@ def apply_stream_offset_to_clip_range(start_seconds, end_seconds, stream_offset_
 
 
 def create_clips(input_video, segments):
-    base_name = sanitize_export_base_name(input_video)
+    original_name = os.path.splitext(os.path.basename(input_video or ""))[0]
+    base_name = (original_name or "video").replace(" ", "_")
     base_dir = os.path.dirname(input_video)
     normalized_segments = normalize_segments(segments)
     validate_continuity(normalized_segments)
@@ -2643,7 +2637,9 @@ def create_clips(input_video, segments):
             f"ffmpeg_end={format_seconds_for_ffmpeg(clip_end)}"
         )
 
-        clip_path = os.path.join(base_dir, f"{base_name}_clip_{i+1}.mp4")
+        clip_name = f"{base_name}_clip_{i+1}"
+        output_video_path = os.path.join(base_dir, f"{clip_name}.mp4")
+        output_text_path = os.path.join(base_dir, f"{clip_name}.txt")
 
         run_command([
             "ffmpeg", "-y",
@@ -2657,29 +2653,30 @@ def create_clips(input_video, segments):
             "-preset", "fast",
             "-crf", "23",
             "-avoid_negative_ts", "make_zero",
-            clip_path
+            output_video_path
         ])
 
-        txt_path = os.path.join(base_dir, f"{base_name}_clip_{i+1}_en.txt")
-
-        with open(txt_path, "w", encoding="utf-8") as file_handle:
+        with open(output_text_path, "w", encoding="utf-8") as file_handle:
             file_handle.write(seg.get("text") or "")
 
 
 def get_generated_files(video_path):
-    base_name = sanitize_export_base_name(video_path)
+    original_name = os.path.splitext(os.path.basename(video_path or ""))[0]
+    base_name = (original_name or "video").replace(" ", "_")
     base_dir = os.path.dirname(video_path)
     clip_files = []
     text_files = []
+
+    clip_video_pattern = re.compile(rf"^{re.escape(base_name)}_clip_(\d+)\.mp4$")
+    clip_text_pattern = re.compile(rf"^{re.escape(base_name)}_clip_(\d+)\.txt$")
 
     for file_name in sorted(os.listdir(base_dir)):
         full_path = os.path.join(base_dir, file_name)
         if not os.path.isfile(full_path):
             continue
-
-        if file_name.startswith(f"{base_name}_clip_") and file_name.endswith(".mp4"):
+        if clip_video_pattern.match(file_name):
             clip_files.append(full_path)
-        elif file_name.startswith(f"{base_name}_clip_") and file_name.endswith("_en.txt"):
+        elif clip_text_pattern.match(file_name):
             text_files.append(full_path)
 
     return clip_files, text_files
@@ -2715,17 +2712,18 @@ def build_zip_archive(video_path):
     if not archive_files:
         raise FileNotFoundError("No generated output files were found.")
 
-    base_name = sanitize_export_base_name(video_path)
+    original_filename = os.path.basename(video_path or "")
+    base_name = os.path.splitext(original_filename)[0]
+    safe_name = (base_name or "video").replace(" ", "_")
     base_dir = os.path.dirname(video_path)
-    zip_path = os.path.join(base_dir, f"{base_name}.zip")
+    zip_path = os.path.join(base_dir, f"{safe_name}_{int(time.time())}.zip")
+    print("ZIP PATH:", zip_path)
 
     with zipfile.ZipFile(zip_path, "w") as zipf:
         for file_path in clip_files:
-            archive_name = os.path.join(base_name, "videos", os.path.basename(file_path))
-            zipf.write(file_path, archive_name)
+            zipf.write(file_path, arcname=os.path.basename(file_path))
         for file_path in text_files:
-            archive_name = os.path.join(base_name, "text", os.path.basename(file_path))
-            zipf.write(file_path, archive_name)
+            zipf.write(file_path, arcname=os.path.basename(file_path))
 
     return zip_path
 
@@ -5370,34 +5368,6 @@ def build_segments_from_sentence_groups(
         segment["subtitleEnd"] = display_end
         segment["readingSpeed"] = compute_reading_speed(segment.get("text", ""), start, end)
 
-    print("=== DEBUG: SEGMENT BUILD ===")
-    for segment in segments[:5]:
-        print(
-            f"SEGMENT: {round_timestamp_value(float(segment.get('start', 0.0)))} "
-            f"-> {round_timestamp_value(float(segment.get('end', 0.0)))}"
-        )
-        print(f"TEXT: {segment.get('text', '')}")
-    print("================================")
-
-    for segment in segments[:5]:
-        print("---- CLIP CHECK ----")
-        print(f"TEXT: {segment.get('text', '')}")
-        segment_start = float(segment.get("start", 0.0))
-        segment_end = float(segment.get("end", segment_start))
-        print(
-            f"RANGE: {round_timestamp_value(segment_start)} "
-            f"-> {round_timestamp_value(segment_end)}"
-        )
-
-        clip_words = [
-            word for word in source_words
-            if segment_start <= float(word.get("start", 0.0)) <= segment_end
-        ]
-        print("WORDS IN CLIP:")
-        for word in clip_words:
-            print(get_word_token(word), round_timestamp_value(float(word.get("start", 0.0))))
-        print("---------------------")
-
     if not USE_ALIGNMENT_DEBUG_MODE:
         segments = enforce_continuity(segments, media_duration)
     normalized = normalize_segments(segments)
@@ -5882,38 +5852,12 @@ def invalidate_clip_audio_cache(video_path, clip_id):
 
 def get_clip_audio_status(video_path, clip_id, text, voice_style=VOICE_STYLE_DEFAULT):
     normalized_style = normalize_voice_style(voice_style)
-    audio_path = get_clip_audio_file_path(video_path, clip_id)
-    meta = read_clip_audio_meta(video_path, clip_id)
     text_hash = get_text_hash(text, normalized_style)
-    cached_hash = meta.get("text_hash")
-    cached_style = normalize_voice_style(meta.get("voice_style"))
-    job_state = get_audio_generation_state(video_path, clip_id, normalized_style)
-
-    if os.path.exists(audio_path) and cached_hash == text_hash and cached_style == normalized_style:
+    if not ENGLISH_AUDIO_ENABLED:
         return {
             "clip_id": int(clip_id),
-            "status": "ready",
-            "error": "",
-            "audio_url": build_audio_url(video_path, clip_id),
-            "text_hash": text_hash,
-            "voice_style": normalized_style,
-        }
-
-    if job_state.get("status") in {"queued", "generating"}:
-        return {
-            "clip_id": int(clip_id),
-            "status": job_state["status"],
-            "error": job_state.get("error", ""),
-            "audio_url": "",
-            "text_hash": text_hash,
-            "voice_style": normalized_style,
-        }
-
-    if job_state.get("status") == "error":
-        return {
-            "clip_id": int(clip_id),
-            "status": "error",
-            "error": job_state.get("error", "Audio generation failed"),
+            "status": "missing",
+            "error": "English audio generation is disabled",
             "audio_url": "",
             "text_hash": text_hash,
             "voice_style": normalized_style,
@@ -5921,7 +5865,7 @@ def get_clip_audio_status(video_path, clip_id, text, voice_style=VOICE_STYLE_DEF
 
     return {
         "clip_id": int(clip_id),
-        "status": "dirty" if os.path.exists(audio_path) else "missing",
+        "status": "missing",
         "error": "",
         "audio_url": "",
         "text_hash": text_hash,
@@ -5930,60 +5874,8 @@ def get_clip_audio_status(video_path, clip_id, text, voice_style=VOICE_STYLE_DEF
 
 
 def generate_audio(text, output_path, style=VOICE_STYLE_DEFAULT):
-    del style
-    raw_output_path = f"{output_path}.xtts.wav"
-    try:
-        cleaned_text = clean_text(text)
-        print("TEXT:", cleaned_text)
-        print("OUTPUT:", output_path)
-        print("SPEAKER:", SPEAKER_PATH)
-        print("EXISTS:", os.path.exists(SPEAKER_PATH))
-
-        os.makedirs("audio_cache", exist_ok=True)
-        os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
-
-        if not cleaned_text:
-            raise Exception("Empty text")
-
-        with tts_lock:
-            print("XTTS LOCK: acquired")
-            tts.tts_to_file(
-                text=cleaned_text,
-                file_path=raw_output_path,
-                language="en",
-                speaker_wav=SPEAKER_PATH,
-                temperature=0.65,
-                length_penalty=1.0,
-                repetition_penalty=2.0,
-            )
-            print("XTTS LOCK: released")
-
-        if not os.path.exists(raw_output_path):
-            raise Exception("Audio file not created")
-
-        run_command([
-            "ffmpeg", "-y",
-            "-i", raw_output_path,
-            "-filter:a", "loudnorm",
-            "-ar", str(DEFAULT_AUDIO_SAMPLE_RATE),
-            "-ac", "1",
-            "-c:a", "pcm_s16le",
-            output_path,
-        ])
-
-        if not os.path.exists(output_path):
-            raise Exception("Audio file not created")
-        print("SUCCESS:", output_path)
-        return output_path
-    except Exception as exc:
-        print("XTTS ERROR:", str(exc))
-        raise Exception(f"Audio generation failed: {str(exc)}")
-    finally:
-        if os.path.exists(raw_output_path):
-            try:
-                os.remove(raw_output_path)
-            except OSError:
-                pass
+    del text, output_path, style
+    raise RuntimeError("English audio generation is disabled")
 
 
 def finalize_clip_audio(raw_audio_path, final_audio_path):
@@ -5998,116 +5890,41 @@ def finalize_clip_audio(raw_audio_path, final_audio_path):
 
 
 def generate_clip_english_audio(video_path, clip_id, text, start, end, invalidate=False, voice_style=VOICE_STYLE_DEFAULT):
-    if not text or not text.strip():
-        raise ValueError(f"Missing text for clip {get_clip_number(clip_id)}")
-
     normalized_style = normalize_voice_style(voice_style)
     text_hash = get_text_hash(text, normalized_style)
     audio_path = get_clip_audio_file_path(video_path, clip_id)
-    meta = read_clip_audio_meta(video_path, clip_id)
-    cached_hash = meta.get("text_hash")
-    cached_style = normalize_voice_style(meta.get("voice_style"))
 
     if invalidate:
         invalidate_clip_audio_cache(video_path, clip_id)
-        meta = {}
-        cached_hash = None
-        cached_style = None
-
-    exists = os.path.exists(audio_path)
-    log(
-        f"Checking: {audio_path} exists={exists} hash_match={cached_hash == text_hash} "
-        f"style_match={cached_style == normalized_style}"
-    )
-    if exists and cached_hash == text_hash and cached_style == normalized_style:
-        return {
-            "clip_id": clip_id,
-            "text_hash": text_hash,
-            "cached": True,
-            "audio_path": audio_path,
-            "audio_url": build_audio_url(video_path, clip_id),
-            "duration_seconds": get_media_duration(audio_path),
-            "voice_style": normalized_style,
-        }
-
-    raw_audio_path = f"{audio_path}.raw.wav"
-
-    try:
-        generate_audio(text=text, output_path=raw_audio_path, style=normalized_style)
-        finalize_clip_audio(
-            raw_audio_path=raw_audio_path,
-            final_audio_path=audio_path,
-        )
-        if not os.path.exists(audio_path):
-            raise Exception("Audio generation failed")
-        actual_duration = get_media_duration(audio_path)
-        write_clip_audio_meta(video_path, clip_id, {
-            "clip_id": int(clip_id),
-            "clip_number": get_clip_number(clip_id),
-            "base_name": derive_base_name(video_path),
-            "text_hash": text_hash,
-            "text": normalize_text_for_hash(text),
-            "start": float(start),
-            "end": float(end),
-            "duration_seconds": actual_duration,
-            "audio_file": os.path.basename(audio_path),
-            "voice_style": normalized_style,
-        })
-    finally:
-        if os.path.exists(raw_audio_path):
-            try:
-                os.remove(raw_audio_path)
-            except OSError:
-                pass
 
     return {
         "clip_id": clip_id,
         "text_hash": text_hash,
         "cached": False,
         "audio_path": audio_path,
-        "audio_url": build_audio_url(video_path, clip_id),
-        "duration_seconds": get_media_duration(audio_path),
+        "audio_url": "",
+        "duration_seconds": 0.0,
         "voice_style": normalized_style,
+        "disabled": True,
+        "start": float(start),
+        "end": float(end),
     }
 
 
 def ensure_all_audio_generated(video_path, normalized_segments, voice_style=VOICE_STYLE_DEFAULT):
-    results = [None] * len(normalized_segments)
-
-    def generate_for_index(segment_index):
-        segment = normalized_segments[segment_index]
-        clip_id = int(segment["clip_id"])
-        expected_path = get_clip_audio_file_path(video_path, clip_id)
-        print("CHECK FILE:", expected_path, os.path.exists(expected_path))
-        results[segment_index] = generate_clip_english_audio(
-            video_path=video_path,
-            clip_id=clip_id,
-            text=segment["text"],
-            start=segment["start"],
-            end=segment["end"],
-            invalidate=False,
-            voice_style=voice_style,
+    results = []
+    for segment in normalized_segments:
+        results.append(
+            generate_clip_english_audio(
+                video_path=video_path,
+                clip_id=int(segment["clip_id"]),
+                text=segment.get("text") or "",
+                start=segment.get("start", 0.0),
+                end=segment.get("end", 0.0),
+                invalidate=False,
+                voice_style=voice_style,
+            )
         )
-        print("CHECK FILE:", results[segment_index]["audio_path"], os.path.exists(results[segment_index]["audio_path"]))
-
-    worker_count = min(4, max(1, len(normalized_segments)))
-    if worker_count > 1:
-        log(
-            f"XTTS uses a shared global model; clip audio requests may queue through a lock. "
-            f"Requested workers={worker_count}"
-        )
-    with ThreadPoolExecutor(max_workers=worker_count) as executor:
-        futures = [
-            executor.submit(generate_for_index, segment_index)
-            for segment_index in range(len(normalized_segments))
-        ]
-        for future in futures:
-            future.result()
-
-    for segment, result in zip(normalized_segments, results):
-        if result is None or not os.path.exists(result["audio_path"]):
-            raise FileNotFoundError(f"Missing audio for clip {get_clip_number(segment['clip_id'])}")
-
     return results
 
 
@@ -6120,70 +5937,47 @@ def generate_all_audio(video_path, normalized_segments, voice_style=VOICE_STYLE_
         if target_clip_ids is not None and clip_id not in target_clip_ids:
             continue
 
-        try:
-            set_audio_generation_state(video_path, clip_id, normalized_style, status="generating", error="")
-            generate_clip_english_audio(
-                video_path=video_path,
-                clip_id=clip_id,
-                text=segment["text"],
-                start=segment["start"],
-                end=segment["end"],
-                invalidate=invalidate,
-                voice_style=normalized_style,
-            )
-            set_audio_generation_state(video_path, clip_id, normalized_style, status="ready", error="")
-        except Exception as exc:
-            log(f"Background audio generation failed for clip {get_clip_number(clip_id)}: {exc}")
-            set_audio_generation_state(
-                video_path,
-                clip_id,
-                normalized_style,
-                status="error",
-                error=str(exc),
-            )
+        set_audio_generation_state(
+            video_path,
+            clip_id,
+            normalized_style,
+            status="skipped",
+            error="English audio generation is disabled",
+        )
 
 
 def _background_audio_worker(video_path, segments, voice_style, clip_ids=None, invalidate=False):
     normalized_segments = normalize_segments(segments)
-    try:
-        generate_all_audio(
-            video_path=video_path,
-            normalized_segments=normalized_segments,
-            voice_style=voice_style,
-            clip_ids=clip_ids,
-            invalidate=invalidate,
-        )
-    finally:
-        worker_key = f"{os.path.realpath(video_path)}::{normalize_voice_style(voice_style)}::{','.join(map(str, sorted(clip_ids or [])))}::{int(invalidate)}"
-        with audio_generation_workers_lock:
-            audio_generation_workers.pop(worker_key, None)
+    generate_all_audio(
+        video_path=video_path,
+        normalized_segments=normalized_segments,
+        voice_style=voice_style,
+        clip_ids=clip_ids,
+        invalidate=invalidate,
+    )
 
 
 def start_background_audio_generation(video_path, segments, voice_style=VOICE_STYLE_DEFAULT, clip_ids=None, invalidate=False):
     normalized_style = normalize_voice_style(voice_style)
-    selected_clip_ids = tuple(sorted({int(clip_id) for clip_id in (clip_ids or [])}))
-    worker_key = f"{os.path.realpath(video_path)}::{normalized_style}::{','.join(map(str, selected_clip_ids))}::{int(invalidate)}"
-
     if clip_ids is None:
         for segment in segments:
-            set_audio_generation_state(video_path, int(segment["clip_id"]), normalized_style, status="queued", error="")
+            set_audio_generation_state(
+                video_path,
+                int(segment["clip_id"]),
+                normalized_style,
+                status="skipped",
+                error="English audio generation is disabled",
+            )
     else:
-        for clip_id in selected_clip_ids:
-            set_audio_generation_state(video_path, clip_id, normalized_style, status="queued", error="")
-
-    with audio_generation_workers_lock:
-        worker = audio_generation_workers.get(worker_key)
-        if worker and worker.is_alive():
-            return False
-
-        worker = threading.Thread(
-            target=_background_audio_worker,
-            args=(video_path, segments, normalized_style, selected_clip_ids or None, invalidate),
-            daemon=True,
-        )
-        audio_generation_workers[worker_key] = worker
-        worker.start()
-        return True
+        for clip_id in tuple(sorted({int(clip_id) for clip_id in (clip_ids or [])})):
+            set_audio_generation_state(
+                video_path,
+                clip_id,
+                normalized_style,
+                status="skipped",
+                error="English audio generation is disabled",
+            )
+    return False
 
 
 def build_merge_signature(video_path, segments, voice_style=VOICE_STYLE_DEFAULT):
@@ -6459,6 +6253,9 @@ def balance_final_english_video(video_path, english_video_path, output_dir, merg
 
 
 def create_english_video_from_clips(video_path, normalized_segments, clip_audio_results, merge_signature):
+    if not ENGLISH_AUDIO_ENABLED:
+        raise RuntimeError("English audio generation is disabled")
+
     output_dir = get_english_output_dir(video_path)
     english_video_path = os.path.join(output_dir, f"{MERGED_VIDEO_FILE_PREFIX}_{merge_signature}.mp4")
     if os.path.exists(english_video_path):
@@ -6503,6 +6300,9 @@ def create_english_video_from_clips(video_path, normalized_segments, clip_audio_
 
 
 def generate_english_video(video_path, segments, voice_style=VOICE_STYLE_DEFAULT):
+    if not ENGLISH_AUDIO_ENABLED:
+        raise RuntimeError("English audio generation is disabled")
+
     normalized_segments = normalize_segments(segments)
     if not normalized_segments:
         raise ValueError("No clips available for English video generation")
@@ -6564,7 +6364,6 @@ def is_drive_upload_configured():
 def get_dev_reload_token():
     watched_files = [
         "app.py",
-        "xtts_service.py",
         os.path.join("templates", "index.html"),
     ]
     mtimes = []
@@ -6643,15 +6442,6 @@ async def process_video(
         segment["clip_id"] = index
         segment["translation"] = segment.get("text") or ""
 
-    background_tasks.add_task(
-        start_background_audio_generation,
-        input_path,
-        segments,
-        VOICE_STYLE_DEFAULT,
-        None,
-        False,
-    )
-
     return {
         "mode": mode,
         "segments": segments,
@@ -6662,7 +6452,7 @@ async def process_video(
         "alignment": alignment_metadata,
         "alignment_mode": resolved_alignment_mode,
         "warning": alignment_metadata.get("warning", ""),
-        "background_audio_started": True,
+        "background_audio_started": False,
         "background_voice_style": VOICE_STYLE_DEFAULT,
     }
 
@@ -6839,32 +6629,16 @@ async def generate_english_audio(data: dict = Body(...)):
         invalidate = bool(data.get("invalidate", False))
         voice_style = normalize_voice_style(data.get("voice_style"))
 
-        if end <= start:
-            return {
-                "ok": False,
-                "error": f"Invalid timestamps for clip {get_clip_number(clip_id)}"
-            }
-
-        set_audio_generation_state(video_path, clip_id, voice_style, status="generating", error="")
-        result = generate_clip_english_audio(
-            video_path=video_path,
-            clip_id=clip_id,
-            text=text,
-            start=start,
-            end=end,
-            invalidate=invalidate,
-            voice_style=voice_style,
-        )
-        set_audio_generation_state(video_path, clip_id, voice_style, status="ready", error="")
-
         return {
-            "ok": True,
+            "ok": False,
             "clip_id": clip_id,
-            "audio_url": result["audio_url"],
-            "text_hash": result["text_hash"],
-            "cached": result["cached"],
-            "duration_seconds": result["duration_seconds"],
-            "voice_style": result["voice_style"],
+            "audio_url": "",
+            "text_hash": get_text_hash(text, voice_style),
+            "cached": False,
+            "duration_seconds": 0.0,
+            "voice_style": voice_style,
+            "error": "English audio generation is disabled",
+            "disabled": True,
         }
     except Exception as exc:
         log(f"ERROR generate-english-audio: {exc}")
@@ -6898,19 +6672,13 @@ async def queue_english_audio_generation(data: dict = Body(...)):
         elif clip_ids is not None:
             clip_ids = [int(value) for value in clip_ids]
 
-        started = start_background_audio_generation(
-            video_path=video_path,
-            segments=segments,
-            voice_style=voice_style,
-            clip_ids=clip_ids,
-            invalidate=invalidate,
-        )
         return {
             "ok": True,
-            "queued": True,
-            "started": started,
+            "queued": False,
+            "started": False,
             "voice_style": voice_style,
             "clip_ids": clip_ids,
+            "disabled": True,
         }
     except Exception as exc:
         log(f"ERROR queue-english-audio: {exc}")
@@ -6962,13 +6730,8 @@ async def get_generated_audio(
     clip_id: int,
     video_path: str = Query(...)
 ):
-    resolved_video_path = resolve_safe_path(video_path)
-    audio_path = get_clip_audio_file_path(resolved_video_path, clip_id)
-
-    if not os.path.exists(audio_path):
-        raise HTTPException(status_code=404, detail="English clip audio not found")
-
-    return FileResponse(audio_path, media_type="audio/wav", filename=os.path.basename(audio_path))
+    del clip_id, video_path
+    raise HTTPException(status_code=404, detail="English audio generation is disabled")
 
 
 @app.post("/generate-english-video")
@@ -7000,23 +6763,11 @@ async def generate_english_video_endpoint(data: dict = Body(...)):
 
 @app.get("/test-tts")
 async def test_tts():
-    test_dir = os.path.join(TEMP_DIR, "test_tts")
-    os.makedirs(test_dir, exist_ok=True)
-    test_output_path = os.path.join(test_dir, "test.wav")
-
-    try:
-        generate_audio("Hello this is a test", test_output_path)
-        return {
-            "ok": True,
-            "audio_path": test_output_path,
-            "audio_url": build_preview_url(test_output_path),
-        }
-    except Exception as exc:
-        log(f"ERROR test-tts: {exc}")
-        return {
-            "ok": False,
-            "error": str(exc)
-        }
+    return {
+        "ok": False,
+        "error": "English audio generation is disabled",
+        "disabled": True,
+    }
 
 
 @app.post("/upload-to-drive")
@@ -7119,11 +6870,15 @@ async def upload_to_drive(data: dict = Body(...)):
 @app.get("/download")
 def download(video_path: str):
     zip_path = build_zip_archive(video_path)
+    print("ZIP PATH:", zip_path)
+    original_filename = os.path.basename(video_path or "")
+    base_name = os.path.splitext(original_filename)[0]
+    safe_name = (base_name or "video").replace(" ", "_")
 
     response = FileResponse(
         zip_path,
         media_type="application/zip",
-        filename=os.path.basename(zip_path)
+        filename=f"{safe_name}.zip"
     )
 
     def cleanup():
